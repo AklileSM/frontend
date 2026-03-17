@@ -10,23 +10,39 @@ It assumes the final system should run like this:
 
 ## What you are building
 
-You are turning the current frontend-only project into a containerized full-stack system:
+You are turning the current frontend-only project into a containerized full-stack system that is managed as **three separate Git repositories**:
 
-1. **Frontend container**
+1. **Frontend repo**
+   - React app
+   - Nginx config
+   - frontend docs
+
+2. **Backend repo**
+   - FastAPI app
+   - database and storage logic
+   - migration scripts
+
+3. **Deployment repo**
+   - Docker Compose
+   - shared Docker environment values
+
+The runtime system itself is:
+
+4. **Frontend container**
    - serves the React app
    - includes Nginx
    - receives browser traffic on port 80
 
-2. **Backend container**
+5. **Backend container**
    - runs FastAPI
    - exposes the API on port 3001
    - talks to PostgreSQL, MinIO, and Hyperbolic
 
-3. **PostgreSQL container**
+6. **PostgreSQL container**
    - stores metadata only
    - does not store the real image or pointcloud files
 
-4. **Existing MinIO on Synology NAS**
+7. **Existing MinIO on Synology NAS**
    - stores the real files
    - is not reinstalled
 
@@ -145,49 +161,42 @@ If Docker, Python, or Node are missing and you are allowed to install packages, 
 
 If this is a shared lab VM and you are **not sure**, ask before changing system package sources or installing new system packages.
 
-## Phase 3: Get the project onto the Ubuntu VM
+## Phase 3: Get the repos onto the Ubuntu VM
 
-### Step 3.1: Push your project to GitHub
+### Step 3.1: Push all three repos to GitHub
 
 `Windows Lab VM`
 
-Because you access the Ubuntu VM through the Windows Lab VM, a direct `scp` from your original machine is not the best default workflow.
+Because you access the Ubuntu VM through the Windows Lab VM, the recommended workflow is:
 
-The recommended workflow is:
+1. push the `frontend` repo to GitHub
+2. push the `backend` repo to GitHub
+3. push the `deployment` repo to GitHub
+4. connect to the Ubuntu VM
+5. clone all three repos directly on the Ubuntu VM
 
-1. push this project to GitHub
-2. connect to the Ubuntu VM
-3. clone the repo directly on the Ubuntu VM
-
-### Step 3.2: Clone the repo on the Ubuntu VM
-
-`Ubuntu VM`
-
-```bash
-cd /tmp
-git clone YOUR_GITHUB_REPO_URL a6-stern2
-```
-
-If the repo already exists on the Ubuntu VM, use:
-
-```bash
-cd /opt/a6-stern
-git pull
-```
-
-### Step 3.3: Move it into place
+### Step 3.2: Clone all three repos on the Ubuntu VM
 
 `Ubuntu VM`
 
 ```bash
 sudo mkdir -p /opt/a6-stern
-sudo rm -rf /opt/a6-stern/*
-sudo mv /tmp/a6-stern2/* /opt/a6-stern/
 sudo chown -R $USER:$USER /opt/a6-stern
 cd /opt/a6-stern
+git clone YOUR_FRONTEND_REPO_URL frontend
+git clone YOUR_BACKEND_REPO_URL backend
+git clone YOUR_DEPLOYMENT_REPO_URL deployment
 ```
 
-### Step 3.4: Confirm the expected files exist
+If the repos already exist on the Ubuntu VM, update them one by one:
+
+```bash
+cd /opt/a6-stern/frontend && git pull
+cd /opt/a6-stern/backend && git pull
+cd /opt/a6-stern/deployment && git pull
+```
+
+### Step 3.3: Confirm the expected repos exist
 
 `Ubuntu VM`
 
@@ -318,7 +327,7 @@ If the frontend loads and the backend docs open, then the containers are talking
 
 ## Phase 7: Optional legacy asset migration
 
-Use this if you want to move old local files from `frontend/public/` into MinIO and PostgreSQL.
+Use this if you want to move old local files from the **frontend repo's** `public/` folder into MinIO and PostgreSQL.
 
 ### Step 7.1: Run the migration script inside the backend container
 
@@ -330,7 +339,7 @@ docker-compose exec backend python scripts/migrate_legacy_assets.py
 ```
 
 What it does:
-- reads local `frontend/public/` assets
+- reads the frontend public files through the Docker-mounted path from the frontend repo
 - uploads them to MinIO
 - creates metadata records in PostgreSQL
 

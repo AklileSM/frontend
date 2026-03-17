@@ -5,6 +5,7 @@ This document describes the proposed production system we are building.
 It is based on the requirements we agreed on:
 - the current React frontend remains the UI
 - the API layer is FastAPI
+- the codebase is managed as **three separate repositories**
 - the preferred production setup is **containerized**
 - the **frontend runs in its own container**
 - the **backend runs in its own container**
@@ -14,13 +15,14 @@ It is based on the requirements we agreed on:
 
 ## 1. High-Level Architecture
 
-The system has five main parts:
+The system has six main parts:
 
 1. **Frontend container**
 2. **Backend container**
 3. **PostgreSQL container**
 4. **Existing MinIO on Synology NAS**
 5. **Windows Lab VM for development and access**
+6. **Three separate Git repositories**
 
 ## 2. System Architecture Diagram
 
@@ -106,6 +108,8 @@ Used for:
 - opening the app in a browser
 
 You access both the Ubuntu VM and the Synology NAS from here.
+
+You also manage the three Git repositories from here.
 
 ### Ubuntu VM
 
@@ -319,11 +323,31 @@ This means:
 
 ## 10. Repository Structure
 
-The current project is organized into three top-level folders:
+The system is managed as three separate repositories:
 
-- `frontend/` - React app, Nginx config, frontend Dockerfile, and project docs
-- `backend/` - FastAPI app, backend Dockerfile, and backend scripts
-- `deployment/` - shared Docker Compose file and Docker environment template
+- `frontend` repo
+  - React app
+  - Nginx config
+  - frontend Dockerfile
+  - project docs
+
+- `backend` repo
+  - FastAPI app
+  - backend Dockerfile
+  - backend scripts
+
+- `deployment` repo
+  - Docker Compose
+  - deployment env template
+
+Typical Ubuntu VM layout:
+
+```text
+/opt/a6-stern/
+  frontend/
+  backend/
+  deployment/
+```
 
 ## 11. Nginx Role
 
@@ -364,14 +388,14 @@ Important:
 
 ## 13. Legacy Asset Migration
 
-If you want to move current local assets from `frontend/public/` into MinIO and PostgreSQL, use:
+If you want to move current local assets from the frontend repo's `public/` folder into MinIO and PostgreSQL, use:
 
 ```text
 backend/scripts/migrate_legacy_assets.py
 ```
 
 That script:
-- scans the existing frontend asset folders
+- reads a configurable frontend public directory
 - uploads matching files into MinIO
 - creates file metadata records in PostgreSQL
 

@@ -2,6 +2,12 @@
 
 This document explains the **preferred deployed layout** for this project.
 
+It assumes you keep **three separate Git repositories** cloned side-by-side on the Ubuntu VM:
+
+- `/opt/a6-stern/frontend`
+- `/opt/a6-stern/backend`
+- `/opt/a6-stern/deployment`
+
 ## Preferred production layout
 
 The Ubuntu VM runs three separate containers:
@@ -93,7 +99,7 @@ Push the updated code to GitHub.
 `Ubuntu VM`
 
 ```bash
-cd /opt/a6-stern
+cd /opt/a6-stern/backend
 git pull
 cd /opt/a6-stern/deployment
 docker-compose up -d --build backend
@@ -108,7 +114,7 @@ Push the updated code to GitHub.
 `Ubuntu VM`
 
 ```bash
-cd /opt/a6-stern
+cd /opt/a6-stern/frontend
 git pull
 cd /opt/a6-stern/deployment
 docker-compose up -d --build frontend
@@ -119,8 +125,9 @@ docker-compose up -d --build frontend
 `Ubuntu VM`
 
 ```bash
-cd /opt/a6-stern
-git pull
+cd /opt/a6-stern/frontend && git pull
+cd /opt/a6-stern/backend && git pull
+cd /opt/a6-stern/deployment && git pull
 cd /opt/a6-stern/deployment
 docker-compose up -d --build
 ```
@@ -162,6 +169,7 @@ It should contain:
 - MinIO endpoint and ports
 - MinIO credentials
 - Hyperbolic API key
+- optional legacy asset path for migration
 
 Important:
 - use the **MinIO API port**
