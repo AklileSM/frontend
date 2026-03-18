@@ -216,7 +216,7 @@ const StaticViewer: React.FC = () => {
   
     // Save the consolidated PDF and trigger download
     const consolidatedPdfBytes = await consolidatedPdf.save();
-    const blob = new Blob([consolidatedPdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(consolidatedPdfBytes)], { type: 'application/pdf' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'Consolidated_Reports.pdf';
