@@ -1,6 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import DarkModeSwitcher from './DarkModeSwitcher';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
  const Header = (props: {
   sidebarOpen: string | boolean | undefined;
@@ -15,6 +16,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
   const [isBackModalOpen, setIsBackModalOpen] = useState(false);
 
   const navigation = useNavigate();
+  const { user, logout } = useAuth();
 
   const navigateHomeModal = () => {
     if(isComparePage){
@@ -54,6 +56,15 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
             {/* <!-- Dark Mode Toggler --> */}
             <DarkModeSwitcher />
             {/* <!-- Dark Mode Toggler --> */}
+
+            {user && (
+              <button
+                onClick={logout}
+                className="ml-2 inline-flex items-center justify-center rounded-md bg-danger py-2 px-4 text-white hover:opacity-90"
+              >
+                Logout
+              </button>
+            )}
 
             {/* <!-- Notification Menu Area --> */}
             {/* <DropdownNotification /> */}
