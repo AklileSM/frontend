@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 // import DropdownMessage from './DropdownMessage';
 // import DropdownNotification from './DropdownNotification';
 // import DropdownUser from './DropdownUser';
@@ -9,6 +10,14 @@ const HomeHeader = (props: {
   sidebarOpen: string | boolean | undefined;
   setSidebarOpen: (arg0: boolean) => void;
 }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <header className="sticky top-0 z-999 flex w-full bg-white drop-shadow-1 dark:bg-boxdark dark:drop-shadow-none">
       <div className="flex flex-grow items-center justify-between px-4 py-4 shadow-2 md:px-6 2xl:px-11">
@@ -41,9 +50,11 @@ const HomeHeader = (props: {
         <div className="flex items-center gap-3 2xsm:gap-7">
           <ul className="flex items-center gap-2 2xsm:gap-4">
             <button
-              className="mr-5 inline-flex items-center justify-center rounded-md bg-primary py-3 px-10 text-center font-medium text-white hover:scale-105 lg:px-8 xl:px-10"
+              type="button"
+              onClick={handleLogout}
+              className="mr-5 inline-flex items-center justify-center rounded-md bg-danger py-3 px-10 text-center font-medium text-white hover:scale-105 lg:px-8 xl:px-10"
             >
-              Login
+              Logout
             </button>
 
             {/* <!-- Dark Mode Toggler --> */}

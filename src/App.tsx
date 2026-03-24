@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Route, Routes, useLocation, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 
 import Loader from './common/Loader';
 import PageTitle from './components/PageTitle';
@@ -66,45 +66,51 @@ function App() {
           <Route path="/unauthorized" element={<Unauthorized />} />
         </Routes>
 
-        {/* Protected app routes */}
+        {/* Protected app routes: home is full-screen without sidebar/header layout */}
         {!isAuthPage && (
-          <DefaultLayout title={currentTitle}>
+          <>
             <Routes>
               <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-              <Route
-                path="/A6_Stern"
-                element={
-                  <ProtectedRoute>
-                    <>
-                      <PageTitle title="A6_stern | Projects " />
-                      <FileExplorer />
-                    </>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/projectx" element={<ProtectedRoute><Projectx /></ProtectedRoute>} />
-              <Route
-                path="/projecty"
-                element={
-                  <ProtectedRoute>
-                    <>
-                      <PageTitle title="Project Y | Projects " />
-                      <Projecty />
-                    </>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/interactiveViewer" element={<ProtectedRoute><InteractiveViewer /></ProtectedRoute>} />
-              <Route path="/interactiveViewerRoom" element={<ProtectedRoute><InteractiveViewerRoom /></ProtectedRoute>} />
-              <Route path="/staticViewer" element={<ProtectedRoute><StaticViewer /></ProtectedRoute>} />
-              <Route path="/staticViewerRoom" element={<ProtectedRoute><StaticViewerRoom /></ProtectedRoute>} />
-              <Route path="/Compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
-              <Route path="/PCDViewer" element={<ProtectedRoute><Aframe_IntViewer /></ProtectedRoute>} />
-              <Route path="/RoomExplorer" element={<ProtectedRoute><RoomFileViewer room={''} /></ProtectedRoute>} />
-              <Route path="/PCD" element={<ProtectedRoute><PCDViewer /></ProtectedRoute>} />
-              <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
             </Routes>
-          </DefaultLayout>
+            {pathname !== '/' && (
+              <DefaultLayout title={currentTitle}>
+                <Routes>
+                  <Route
+                    path="/A6_Stern"
+                    element={
+                      <ProtectedRoute>
+                        <>
+                          <PageTitle title="A6_stern | Projects " />
+                          <FileExplorer />
+                        </>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/projectx" element={<ProtectedRoute><Projectx /></ProtectedRoute>} />
+                  <Route
+                    path="/projecty"
+                    element={
+                      <ProtectedRoute>
+                        <>
+                          <PageTitle title="Project Y | Projects " />
+                          <Projecty />
+                        </>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/interactiveViewer" element={<ProtectedRoute><InteractiveViewer /></ProtectedRoute>} />
+                  <Route path="/interactiveViewerRoom" element={<ProtectedRoute><InteractiveViewerRoom /></ProtectedRoute>} />
+                  <Route path="/staticViewer" element={<ProtectedRoute><StaticViewer /></ProtectedRoute>} />
+                  <Route path="/staticViewerRoom" element={<ProtectedRoute><StaticViewerRoom /></ProtectedRoute>} />
+                  <Route path="/Compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
+                  <Route path="/PCDViewer" element={<ProtectedRoute><Aframe_IntViewer /></ProtectedRoute>} />
+                  <Route path="/RoomExplorer" element={<ProtectedRoute><RoomFileViewer room={''} /></ProtectedRoute>} />
+                  <Route path="/PCD" element={<ProtectedRoute><PCDViewer /></ProtectedRoute>} />
+                  <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
+                </Routes>
+              </DefaultLayout>
+            )}
+          </>
         )}
       </SelectedDateProvider>
     </AuthProvider>
