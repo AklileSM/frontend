@@ -1,8 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import DarkModeSwitcher from './DarkModeSwitcher';
+import HeaderProfileMenu from './HeaderProfileMenu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-
  const Header = (props: {
   sidebarOpen: string | boolean | undefined;
   setSidebarOpen: (arg0: boolean) => void;
@@ -14,9 +13,6 @@ import { useAuth } from '../../context/AuthContext';
 
   const isComparePage = pathname === '/compare';
   const [isBackModalOpen, setIsBackModalOpen] = useState(false);
-
-  const navigation = useNavigate();
-  const { user, logout } = useAuth();
 
   const navigateHomeModal = () => {
     if(isComparePage){
@@ -57,14 +53,7 @@ import { useAuth } from '../../context/AuthContext';
             <DarkModeSwitcher />
             {/* <!-- Dark Mode Toggler --> */}
 
-            {user && (
-              <button
-                onClick={logout}
-                className="ml-2 inline-flex items-center justify-center rounded-md bg-danger py-2 px-4 text-white hover:opacity-90"
-              >
-                Logout
-              </button>
-            )}
+            <HeaderProfileMenu />
 
             {/* <!-- Notification Menu Area --> */}
             {/* <DropdownNotification /> */}
