@@ -5,6 +5,15 @@ import { OrbitControls } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera } from 'three';
 import { useLocation, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
+
+type InteractiveViewerState = {
+  imageUrl?: string;
+  fileId?: string;
+  displayFileName?: string;
+  roomLabel?: string;
+  captureDate?: string;
+};
 
 const PanoramicSphere: React.FC<{ imageUrl: string }> = ({ imageUrl }) => {
   const { gl } = useThree();
@@ -33,19 +42,11 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
   return null;
 };
 
-const extractDateFromPath = (path: string): string => {
-  const parts: string[] = path.split('/');
-  const dateSegment: string | undefined = parts.find((segment: string) => /^\d{8}$/.test(segment));
-  if (!dateSegment) {
-    return "Unknown Date"; // Graceful fallback
-  }
-  return `${dateSegment.slice(0, 4)}-${dateSegment.slice(4, 6)}-${dateSegment.slice(6, 8)}`;
-};
-
 const InteractiveViewer: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const imageUrl = location.state?.imageUrl || "/Images/panoramas/20241007/room02.jpg";
+  const navState = (location.state || {}) as InteractiveViewerState;
+  const imageUrl = navState.imageUrl || '/Images/panoramas/20241007/room02.jpg';
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +54,24 @@ const InteractiveViewer: React.FC = () => {
   const [scene, setScene] = useState<Scene | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
 
-  const fileName = imageUrl.split('/').pop();
+  const viewingFileName =
+    (navState.displayFileName && navState.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
+
+  const formattedDate =
+    (navState.captureDate && navState.captureDate.trim().slice(0, 10)) ||
+    extractDateFromImageRef(imageUrl) ||
+    'Unknown Date';
+
+  let roomNumber: string;
+  if (navState.roomLabel && navState.roomLabel.trim()) {
+    roomNumber = navState.roomLabel.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
+    }
+  }
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [includeNotes, setIncludeNotes] = useState(false);
@@ -67,21 +85,6 @@ const InteractiveViewer: React.FC = () => {
   const [qualityIssue, setQualityIssue] = useState(false);
   const [delayed, setDelayed] = useState(false);
   
-  // Extract the date from the path using the new function
-  let formattedDate: string;
-  try {
-    formattedDate = extractDateFromPath(imageUrl);
-  } catch (error) {
-    console.error("Error extracting date:", error);
-    formattedDate = "Unknown Date"; // Fallback if date extraction fails
-  }
-
-  let roomNumber = "Unknown Room";
-  const roomMatch = fileName.match(/room(\d+)/i);
-  if (roomMatch) {
-    roomNumber = `Room ${parseInt(roomMatch[1], 10)}`; // Extracts room number and removes leading zero if any
-  }
-
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       viewerRef.current?.requestFullscreen();
@@ -152,8 +155,10 @@ const InteractiveViewer: React.FC = () => {
     doc.text("John Doe", 50, 60);
   
     // Project Zone
-    const imageFileName = fileName;
-    const roomDescription = fileName.match(/\d+/) ? `Room ${fileName.match(/\d+/)[0]}` : "Room 1";
+    const imageFileName = viewingFileName;
+    const digitMatch = viewingFileName.match(/\d+/);
+    const roomDescription =
+      roomNumber !== 'Unknown Room' ? roomNumber : digitMatch ? `Room ${digitMatch[0]}` : 'Room 1';
     const projectZoneDescription = `This report is generated based on ${imageFileName} of ${roomDescription} taken on ${formattedDate.replace(/-/g, '/')}.`;
     
     doc.setFont("helvetica", "normal");
@@ -240,17 +245,28 @@ const InteractiveViewer: React.FC = () => {
       <div className="flex justify-between items-center border-b border-gray-300 dark:border-strokedark pb-4">
         <div>
           <h1 className="text-xl font-bold text-black dark:text-white">360 Viewer</h1>
-          <p className="text-sm text-black dark:text-gray-400 mt-1">
-            Viewing: <span className="font-semibold">{fileName}</span> 
-            <div className="flex justify-center space-x-1 mt-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{roomNumber},</p>
-              <span className="text-gray-400"> (Date: {formattedDate})</span>
-            </div>
+          <p className="mt-1 text-sm text-black dark:text-gray-400">
+            Viewing: <span className="font-semibold">{viewingFileName}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {roomNumber}, (Date: {formattedDate})
           </p>
         </div>
         <div className="flex space-x-4">
           <button
-            onClick={() => navigate('/staticViewer', { state: { imageUrl } })}
+            onClick={() =>
+              navigate('/staticViewer', {
+                state: {
+                  imageUrl,
+                  fileId: navState.fileId,
+                  displayFileName: navState.displayFileName ?? viewingFileName,
+                  roomLabel: navState.roomLabel ?? roomNumber,
+                  captureDate:
+                    navState.captureDate ||
+                    (formattedDate !== 'Unknown Date' ? formattedDate : undefined),
+                },
+              })
+            }
             className="bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60"
           >
             Open in 2D Viewer

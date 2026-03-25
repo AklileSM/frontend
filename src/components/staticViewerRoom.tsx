@@ -343,7 +343,20 @@ const StaticViewerRoom: React.FC = () => {
 
         <div className="flex space-x-4">
           <button
-            onClick={() => navigate('/interactiveViewerRoom', { state: { imageUrl, room } })} // Pass room along with imageUrl
+            onClick={() =>
+              navigate('/interactiveViewerRoom', {
+                state: {
+                  imageUrl,
+                  room,
+                  fileId: state.fileId,
+                  displayFileName: viewingFileName,
+                  roomLabel: roomNumber,
+                  captureDate:
+                    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+                    (formattedDate !== 'Unknown Date' ? formattedDate : undefined),
+                },
+              })
+            }
             className="bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60"
           >
             Open in 360 Viewer

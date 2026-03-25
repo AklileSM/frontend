@@ -5,6 +5,16 @@ import { OrbitControls, Html  } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera,Raycaster, Vector2, Vector3 } from 'three';
 import { useLocation, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
+
+type InteractiveViewerRoomState = {
+  imageUrl?: string;
+  fileId?: string;
+  room?: string;
+  displayFileName?: string;
+  roomLabel?: string;
+  captureDate?: string;
+};
 import MarkerTool from './MarkerTool';
 import LengthTool from './LengthTool';
 import AreaTool from './AreaTool';
@@ -44,18 +54,34 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
 const InteractiveViewerRoom: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const imageUrl = location.state?.imageUrl || "/Images/panoramas/20241007/room02.jpg";
+  const navState = (location.state || {}) as InteractiveViewerRoomState;
+  const imageUrl = navState.imageUrl || '/Images/panoramas/20241007/room02.jpg';
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const room = location.state?.room || 'defaultRoom';
+  const room = navState.room || 'defaultRoom';
 
   const [gl, setGl] = useState<WebGLRenderer | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
 
-  const fileName = imageUrl.split('/').pop();
-  const folderName = imageUrl.split('/')[3];
-  const formattedDate = `${folderName.slice(0, 4)}-${folderName.slice(4, 6)}-${folderName.slice(6, 8)}`;
+  const viewingFileName =
+    (navState.displayFileName && navState.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
+
+  const formattedDate =
+    (navState.captureDate && navState.captureDate.trim().slice(0, 10)) ||
+    extractDateFromImageRef(imageUrl) ||
+    'Unknown Date';
+
+  let roomNumber: string;
+  if (navState.roomLabel && navState.roomLabel.trim()) {
+    roomNumber = navState.roomLabel.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
+    }
+  }
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [includeNotes, setIncludeNotes] = useState(false);
@@ -289,8 +315,10 @@ const staticLineData = useMemo(() => {
     doc.text("John Doe", 50, 60);
   
     // Project Zone
-    const imageFileName = fileName;
-    const roomDescription = fileName.match(/\d+/) ? `Room ${fileName.match(/\d+/)[0]}` : "Room 1";
+    const imageFileName = viewingFileName;
+    const digitMatch = viewingFileName.match(/\d+/);
+    const roomDescription =
+      roomNumber !== 'Unknown Room' ? roomNumber : digitMatch ? `Room ${digitMatch[0]}` : 'Room 1';
     const projectZoneDescription = `This report is generated based on ${imageFileName} of ${roomDescription} taken on ${formattedDate.replace(/-/g, '/')}.`;
     
     doc.setFont("helvetica", "normal");
@@ -379,14 +407,29 @@ const staticLineData = useMemo(() => {
       <div className="flex justify-between items-center border-b border-gray-300 dark:border-strokedark pb-4">
         <div>
           <h1 className="text-xl font-bold text-black dark:text-white">360 Viewer</h1>
-          <p className="text-sm text-black dark:text-gray-400 mt-1">
-            Viewing: <span className="font-semibold">{fileName}</span> 
-            <span className="text-gray-400"> (Date: {formattedDate})</span>
+          <p className="mt-1 text-sm text-black dark:text-gray-400">
+            Viewing: <span className="font-semibold">{viewingFileName}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {roomNumber}, (Date: {formattedDate})
           </p>
         </div>
         <div className="flex space-x-4">
           <button
-            onClick={() => navigate('/staticViewer', { state: { imageUrl } })}
+            onClick={() =>
+              navigate('/staticViewerRoom', {
+                state: {
+                  imageUrl,
+                  room,
+                  fileId: navState.fileId,
+                  displayFileName: navState.displayFileName ?? viewingFileName,
+                  roomLabel: navState.roomLabel ?? roomNumber,
+                  captureDate:
+                    navState.captureDate ||
+                    (formattedDate !== 'Unknown Date' ? formattedDate : undefined),
+                },
+              })
+            }
             className="bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60"
           >
             Open in 2D Viewer
