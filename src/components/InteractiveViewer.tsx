@@ -127,10 +127,10 @@ const InteractiveViewer: React.FC = () => {
         ? import.meta.env.VITE_PROJECT_NAME.trim()
         : 'A6 Stern';
     const doc = buildFieldObservationPdf({
-      documentTitle: 'Field observation report',
+      documentTitle: 'A6_Stern Project Observation Report',
       assessmentMethodSubtitle: 'Panoramic (360°) visual record',
       projectName,
-      organizationLine: 'Construction site documentation',
+      organizationLine: 'SMART Construction Research Group',
       preparedBy: session?.user?.username ?? 'Not signed in',
       reportReference: ref,
       recordFileName: viewingFileName,
