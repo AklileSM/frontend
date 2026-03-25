@@ -7,9 +7,18 @@ import {
   getExplorerByDate,
 } from '../../services/apiClient';
 
+/** Passed when user picks a file so viewers can show name / room / date instead of a long presigned URL. */
+export type CompareExplorerFileSelection = {
+  fileUrl: string;
+  displayFileName: string;
+  roomLabel: string;
+  captureDate: string;
+  fileId?: string;
+};
+
 interface CompareFileExplorerProps {
   selectedDate: string;
-  onFileSelect: (fileUrl: string) => void;
+  onFileSelect: (file: CompareExplorerFileSelection) => void;
   disabledFile: string | null;
   className?: string;
   onBackToCalendar: () => void;
@@ -83,7 +92,7 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
     }));
   };
 
-  const renderThumbnails = (thumbnails: ApiMediaFile[]) => {
+  const renderThumbnails = (thumbnails: ApiMediaFile[], roomDisplayName: string) => {
     return thumbnails.map((thumbnail) => {
       const primary = viewerUrl(thumbnail);
       const isDisabled = primary === disabledFile;
@@ -94,7 +103,13 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
           className={`flex flex-col cursor-pointer ${isDisabled ? 'opacity-30 cursor-not-allowed' : ''}`}
           onClick={() => {
             if (!isDisabled) {
-              onFileSelect(primary);
+              onFileSelect({
+                fileUrl: primary,
+                displayFileName: thumbnail.file_name,
+                roomLabel: roomDisplayName,
+                captureDate: thumbnail.capture_date,
+                fileId: thumbnail.id,
+              });
             }
           }}
         >
@@ -156,7 +171,7 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
         >
           {(media[activeTab as keyof ApiRoomMediaGroup] || []).length > 0 ? (
             <div className="grid grid-cols-2 gap-4">
-              {renderThumbnails(media[activeTab as keyof ApiRoomMediaGroup] || [])}
+              {renderThumbnails(media[activeTab as keyof ApiRoomMediaGroup] || [], room)}
             </div>
           ) : (
             <p className="text-center text-bodydark dark:text-gray-400 mt-2">

@@ -2,11 +2,16 @@ import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef, } 
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera } from 'three';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../../utils/imageViewerMeta';
 
 interface Compare360ViewerProps {
   imageUrl: string;
+  /** When set (e.g. from API explorer), overlay shows this instead of parsing the presigned URL. */
+  displayFileName?: string;
+  roomLabel?: string;
+  captureDate?: string;
   onClose: () => void;
-  onScreenshotsUpdate?: (screenshots: string[]) => void; 
+  onScreenshotsUpdate?: (screenshots: string[]) => void;
   onImageDetailsUpdate?: (fileName: string, formattedDate: string) => void;
   sharedCameraPosition: [number, number, number];
   setSharedCameraPosition: (position: [number, number, number]) => void;
@@ -41,7 +46,19 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
   return null;
 };
 
-const Compare360Viewer: React.FC<Compare360ViewerProps> = ({ imageUrl, onClose, onScreenshotsUpdate,  onImageDetailsUpdate, sharedCameraPosition, setSharedCameraPosition, isSynchronized, onTakeScreenshot }) => {
+const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
+  imageUrl,
+  displayFileName: displayFileNameProp,
+  roomLabel: roomLabelProp,
+  captureDate: captureDateProp,
+  onClose,
+  onScreenshotsUpdate,
+  onImageDetailsUpdate,
+  sharedCameraPosition,
+  setSharedCameraPosition,
+  isSynchronized,
+  onTakeScreenshot,
+}) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
   const [isToolbarOpen, setIsToolbarOpen] = useState(false);
@@ -53,9 +70,12 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({ imageUrl, onClose, 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentScreenshot, setCurrentScreenshot] = useState<string | null>(null);
 
-  const fileName = imageUrl.split('/').pop() || "unknown";
-  const folderName = imageUrl.split('/')[3];
-  const formattedDate = folderName ? `${folderName.slice(0, 4)}-${folderName.slice(4, 6)}-${folderName.slice(6, 8)}` : "";
+  const viewingFileName =
+    (displayFileNameProp && displayFileNameProp.trim()) || stripQueryLastPathSegment(imageUrl);
+  const formattedDate =
+    (captureDateProp && captureDateProp.trim().slice(0, 10)) ||
+    extractDateFromImageRef(imageUrl) ||
+    '';
 
   // Define refs at the top level
   const glRef = useRef<WebGLRenderer | null>(null);
@@ -100,19 +120,22 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({ imageUrl, onClose, 
     }
   };
   
-  // Extract room number from the file name
-  let roomNumber = "Unknown Room";
-  const roomMatch = fileName.match(/room(\d+)/i);
-  if (roomMatch) {
-    roomNumber = `Room ${parseInt(roomMatch[1], 10)}`; // Extracts room number and removes leading zero if any
+  let roomNumber: string;
+  if (roomLabelProp && roomLabelProp.trim()) {
+    roomNumber = roomLabelProp.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
+    }
   }
 
-  // UseEffect to send data, ensuring fileName and formattedDate are valid strings
   useEffect(() => {
     if (onImageDetailsUpdate) {
-      onImageDetailsUpdate(fileName, formattedDate); // Now fileName and formattedDate are always strings
+      onImageDetailsUpdate(viewingFileName, formattedDate || 'Unknown Date');
     }
-  }, [fileName, formattedDate, onImageDetailsUpdate]);
+  }, [viewingFileName, formattedDate, onImageDetailsUpdate]);
   
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -160,11 +183,10 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({ imageUrl, onClose, 
   return (
     <div ref={viewerRef} className="w-full h-full relative bg-gray-700 rounded-lg overflow-hidden shadow-lg">
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md z-999">
-        <p className="text-sm text-black dark:text-gray-300 font-semibold">Viewing: {fileName}</p>
-        <div className="flex justify-center space-x-1 mt-1">
-          <p className="text-sm text-gray-500 dark:text-gray-400">{roomNumber},</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Date: {formattedDate}</p>
-        </div>
+        <p className="text-sm text-black dark:text-gray-300 font-semibold">Viewing: {viewingFileName}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {roomNumber}, (Date: {formattedDate || 'Unknown Date'})
+        </p>
       </div>
       <button
         onClick={() => setIsToolbarOpen(!isToolbarOpen)}

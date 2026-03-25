@@ -1,26 +1,44 @@
 // ComparePCDViewer.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import 'aframe';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../../utils/imageViewerMeta';
 
 interface ComparePCDViewerProps {
   modelUrl: string;
   onClose: () => void;
+  displayFileName?: string;
+  roomLabel?: string;
+  captureDate?: string;
 }
 
-const ComparePCDViewer: React.FC<ComparePCDViewerProps> = ({ modelUrl, onClose }) => {
+const ComparePCDViewer: React.FC<ComparePCDViewerProps> = ({
+  modelUrl,
+  onClose,
+  displayFileName: displayFileNameProp,
+  roomLabel: roomLabelProp,
+  captureDate: captureDateProp,
+}) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isToolbarOpen, setIsToolbarOpen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
 
-  // Extract file name and folder-based date from modelUrl
-  const fileName = modelUrl.split('/').pop() || 'Unknown File';
-  const folderName = modelUrl.split('/')[2] || '';
-
-  // Format date if folderName has the YYYYMMDD format
+  const viewingFileName =
+    (displayFileNameProp && displayFileNameProp.trim()) || stripQueryLastPathSegment(modelUrl);
   const formattedDate =
-    folderName.length === 8
-      ? `${folderName.slice(0, 4)}-${folderName.slice(4, 6)}-${folderName.slice(6, 8)}`
-      : 'Unknown Date';
+    (captureDateProp && captureDateProp.trim().slice(0, 10)) ||
+    extractDateFromImageRef(modelUrl) ||
+    'Unknown Date';
+
+  let roomNumber: string;
+  if (roomLabelProp && roomLabelProp.trim()) {
+    roomNumber = roomLabelProp.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
+    }
+  }
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -43,8 +61,10 @@ const ComparePCDViewer: React.FC<ComparePCDViewerProps> = ({ modelUrl, onClose }
       {/* Display File Name and Date */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center bg-white dark:bg-gray-800 p-2 rounded-lg shadow-md z-999">
         <p className="text-sm text-black dark:text-gray-300">
-          Viewing: <span className="font-semibold">{fileName}</span>
-          <span className="text-gray-500 dark:text-gray-400"> (Date: {formattedDate})</span>
+          Viewing: <span className="font-semibold">{viewingFileName}</span>
+        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {roomNumber}, (Date: {formattedDate})
         </p>
       </div>
 

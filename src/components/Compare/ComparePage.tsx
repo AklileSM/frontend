@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import CompareCalendar from './CompareCalendar';
-import CompareFileExplorer from './CompareFileExplorer';
+import CompareFileExplorer, { type CompareExplorerFileSelection } from './CompareFileExplorer';
 import Compare360Viewer from './Compare360Viewer';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -28,6 +28,17 @@ const ComparePage: React.FC = () => {
 
   const [leftHDImageUrl, setLeftHDImageUrl] = useState<string | null>(null);
   const [rightHDImageUrl, setRightHDImageUrl] = useState<string | null>(null);
+
+  const [leftViewerMeta, setLeftViewerMeta] = useState<{
+    displayFileName: string;
+    roomLabel: string;
+    captureDate: string;
+  } | null>(null);
+  const [rightViewerMeta, setRightViewerMeta] = useState<{
+    displayFileName: string;
+    roomLabel: string;
+    captureDate: string;
+  } | null>(null);
 
   const [showLeftPCDViewer, setShowLeftPCDViewer] = useState(false);
   const [showRightPCDViewer, setShowRightPCDViewer] = useState(false);  
@@ -88,16 +99,16 @@ const ComparePage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
-  const handleCloseLeft360Viewer = () => 
-  {
+  const handleCloseLeft360Viewer = () => {
     setLeftSelectedFile(null);
     setShowLeft360Viewer(false);
-  }
-  const handleCloseRight360Viewer = () => 
-  {
-    setRightSelectedFile(null); 
+    setLeftViewerMeta(null);
+  };
+  const handleCloseRight360Viewer = () => {
+    setRightSelectedFile(null);
     setShowRight360Viewer(false);
-  }
+    setRightViewerMeta(null);
+  };
 
   const [safetyIssue, setSafetyIssue] = useState(false);
   const [qualityIssue, setQualityIssue] = useState(false);
@@ -209,51 +220,59 @@ const ComparePage: React.FC = () => {
   const handleLeftDateSelect = (date: string) => {
     setLeftSelectedDate(date);
     setLeftSelectedFile(null);
+    setLeftViewerMeta(null);
     setShowLeftCalendar(false);
   };
 
   const handleRightDateSelect = (date: string) => {
     setRightSelectedDate(date);
     setRightSelectedFile(null);
+    setRightViewerMeta(null);
     setShowRightCalendar(false);
   };
 
-  const extractRoomNumber = (fileName: string): string | null => {
-    if (!fileName) {
-      return null;
-    }
-    const match = fileName.match(/\d+/); // Match digits in the filename
-    return match ? match[0] : null; // Return the room number or null
+  /** Room index for compare validation: prefer room02 in filename, else digit in "Room N" label. */
+  const compareRoomKey = (sel: CompareExplorerFileSelection): string | null => {
+    const fromFile = sel.displayFileName.match(/room(\d+)/i);
+    if (fromFile) return String(parseInt(fromFile[1], 10));
+    const fromLabel = sel.roomLabel.match(/(\d+)/);
+    if (fromLabel) return String(parseInt(fromLabel[1], 10));
+    return null;
   };
-  
 
-  const handleLeftThumbnailClick = (fileUrl: string) => {
-    console.log(`Left file URL clicked: ${fileUrl}`);
-  
-    // Check if the file is already selected for the right view
+  const handleLeftThumbnailClick = (sel: CompareExplorerFileSelection) => {
+    const { fileUrl } = sel;
+
     if (fileUrl === rightSelectedFile) {
       alert('This file is already selected for the right view!');
       return;
     }
-  
-    const fileName = fileUrl.split("/").pop(); // Extract the filename
-    const leftRoomNumber = extractRoomNumber(fileName ?? ""); // Extract room number from the filename
-  
-    console.log(`Left Room Number: ${leftRoomNumber}`);
-  
-    // If there's a right file selected, compare the room numbers
-    if (rightSelectedFile) {
-      const rightFileName = rightSelectedFile.split("/").pop();
-      const rightRoomNumber = extractRoomNumber(rightFileName ?? "");
-  
+
+    const leftRoomNumber = compareRoomKey(sel);
+
+    if (rightSelectedFile && rightViewerMeta) {
+      const rightRoomNumber = compareRoomKey({
+        fileUrl: rightSelectedFile,
+        displayFileName: rightViewerMeta.displayFileName,
+        roomLabel: rightViewerMeta.roomLabel,
+        captureDate: rightViewerMeta.captureDate,
+      });
+
       if (leftRoomNumber !== rightRoomNumber) {
-        alert("Please select files from the same room.");
-        return; // Stop execution if the room numbers do not match
+        alert('Please select files from the same room.');
+        return;
       }
     }
-  
+
     setLeftSelectedFile(fileUrl);
-    if (fileUrl.endsWith('.glb') || fileUrl.endsWith('.obj') || fileUrl.endsWith('.e57')) {
+    setLeftViewerMeta({
+      displayFileName: sel.displayFileName,
+      roomLabel: sel.roomLabel,
+      captureDate: sel.captureDate,
+    });
+
+    const pathForExt = fileUrl.split('?')[0].toLowerCase();
+    if (pathForExt.endsWith('.glb') || pathForExt.endsWith('.obj') || pathForExt.endsWith('.e57')) {
       setLeftHDImageUrl(fileUrl);
       setShowLeftPCDViewer(true);
     } else {
@@ -262,33 +281,39 @@ const ComparePage: React.FC = () => {
     }
   };
 
-  const handleRightThumbnailClick = (fileUrl: string) => {
-    console.log(`Right file URL clicked: ${fileUrl}`);
-  
-    // Check if the file is already selected for the left view
+  const handleRightThumbnailClick = (sel: CompareExplorerFileSelection) => {
+    const { fileUrl } = sel;
+
     if (fileUrl === leftSelectedFile) {
       alert('This file is already selected for the left view!');
       return;
     }
-  
-    const fileName = fileUrl.split("/").pop(); // Extract the filename
-    const rightRoomNumber = extractRoomNumber(fileName ?? ""); // Extract room number from the filename
-  
-    console.log(`Right Room Number: ${rightRoomNumber}`);
-  
-    // If there's a left file selected, compare the room numbers
-    if (leftSelectedFile) {
-      const leftFileName = leftSelectedFile.split("/").pop();
-      const leftRoomNumber = extractRoomNumber(leftFileName ?? "");
-  
+
+    const rightRoomNumber = compareRoomKey(sel);
+
+    if (leftSelectedFile && leftViewerMeta) {
+      const leftRoomNumber = compareRoomKey({
+        fileUrl: leftSelectedFile,
+        displayFileName: leftViewerMeta.displayFileName,
+        roomLabel: leftViewerMeta.roomLabel,
+        captureDate: leftViewerMeta.captureDate,
+      });
+
       if (rightRoomNumber !== leftRoomNumber) {
-        alert("Please select files from the same room.");
-        return; // Stop execution if the room numbers do not match
+        alert('Please select files from the same room.');
+        return;
       }
     }
-  
+
     setRightSelectedFile(fileUrl);
-    if (fileUrl.endsWith('.glb') || fileUrl.endsWith('.obj') || fileUrl.endsWith('.e57')) {
+    setRightViewerMeta({
+      displayFileName: sel.displayFileName,
+      roomLabel: sel.roomLabel,
+      captureDate: sel.captureDate,
+    });
+
+    const pathForExt = fileUrl.split('?')[0].toLowerCase();
+    if (pathForExt.endsWith('.glb') || pathForExt.endsWith('.obj') || pathForExt.endsWith('.e57')) {
       setRightHDImageUrl(fileUrl);
       setShowRightPCDViewer(true);
     } else {
@@ -701,11 +726,20 @@ const ComparePage: React.FC = () => {
           ) : (
             <>
               {showLeftPCDViewer ? (
-                <ComparePCDViewer modelUrl={leftHDImageUrl as string} onClose={() => setShowLeftPCDViewer(false)} />
+                <ComparePCDViewer
+                  modelUrl={leftHDImageUrl as string}
+                  onClose={() => setShowLeftPCDViewer(false)}
+                  displayFileName={leftViewerMeta?.displayFileName}
+                  roomLabel={leftViewerMeta?.roomLabel}
+                  captureDate={leftViewerMeta?.captureDate}
+                />
               ) : showLeft360Viewer ? (
                 <Compare360Viewer
                   onTakeScreenshot={handleLeftScreenshotAssignment}
                   imageUrl={leftHDImageUrl as string}
+                  displayFileName={leftViewerMeta?.displayFileName}
+                  roomLabel={leftViewerMeta?.roomLabel}
+                  captureDate={leftViewerMeta?.captureDate}
                   onClose={handleCloseLeft360Viewer}
                   onScreenshotsUpdate={handleLeftScreenshot}
                   onImageDetailsUpdate={handleLeftImageDetailsUpdate}
@@ -743,11 +777,20 @@ const ComparePage: React.FC = () => {
           ) : (
             <>
               {showRightPCDViewer ? (
-                <ComparePCDViewer modelUrl={rightHDImageUrl as string} onClose={() => setShowRightPCDViewer(false)} />
+                <ComparePCDViewer
+                  modelUrl={rightHDImageUrl as string}
+                  onClose={() => setShowRightPCDViewer(false)}
+                  displayFileName={rightViewerMeta?.displayFileName}
+                  roomLabel={rightViewerMeta?.roomLabel}
+                  captureDate={rightViewerMeta?.captureDate}
+                />
               ) : showRight360Viewer ? (
                 <Compare360Viewer
                   onTakeScreenshot={handleRightScreenshotAssignment}
                   imageUrl={rightHDImageUrl as string}
+                  displayFileName={rightViewerMeta?.displayFileName}
+                  roomLabel={rightViewerMeta?.roomLabel}
+                  captureDate={rightViewerMeta?.captureDate}
                   onClose={handleCloseRight360Viewer}
                   onScreenshotsUpdate={handleRightScreenshot}
                   onImageDetailsUpdate={handleRightImageDetailsUpdate}
