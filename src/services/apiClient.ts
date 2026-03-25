@@ -35,6 +35,8 @@ export interface ApiMediaFile {
   file_name: string;
   full_src?: string | null;
   capture_date: string;
+  /** Present when upload recorded uploader; used for delete UI vs viewer role. */
+  uploaded_by_user_id?: string | null;
 }
 
 export interface ApiRoomMediaGroup {
@@ -242,5 +244,12 @@ export async function uploadSingleFile(params: {
     throw new Error(await parseApiError(response));
   }
   return response.json() as Promise<UploadSingleResponse>;
+}
+
+export async function deleteFileAsset(fileId: string): Promise<void> {
+  const response = await apiFetch(`/files/${fileId}`, { method: 'DELETE' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
 }
 

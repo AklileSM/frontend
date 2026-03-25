@@ -7,15 +7,18 @@ import {
   ApiMediaFile,
   ApiRoom,
   ApiRoomMediaGroup,
+  deleteFileAsset,
   getExplorerByDate,
   listRooms,
   uploadSingleFile,
 } from '../../services/apiClient';
+import type { AuthUser } from '../../auth/authSession';
 import { useAuth } from '../../context/AuthContext';
 
 const FileExplorer: React.FC = () => {
   const { selectedDate } = useSelectedDate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const canUpload = Boolean(user && user.role !== 'viewer');
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
@@ -32,6 +35,7 @@ const FileExplorer: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadOk, setUploadOk] = useState<string | null>(null);
   const [roomsFetchError, setRoomsFetchError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +154,24 @@ const FileExplorer: React.FC = () => {
     setCollapsedRooms(initialCollapsedRooms);
   }, [activeTab, thumbnailsForSelectedDate]);
 
+  const canDeleteFiles = (authUser: AuthUser | null): boolean =>
+    Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
+
+  const handleDeleteFile = async (file: ApiMediaFile) => {
+    if (!canDeleteFiles(user)) return;
+    const ok = window.confirm(`Delete “${file.file_name}”? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(file.id);
+    try {
+      await deleteFileAsset(file.id);
+      reloadExplorer();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleUpload = async () => {
     if (!selectedDate || !file || !roomSlug) return;
     setUploadError(null);
@@ -180,6 +202,8 @@ const FileExplorer: React.FC = () => {
         {thumbnails.map((thumbnail) => {
           const fileName = thumbnail.file_name;
 
+          const showDelete = canDeleteFiles(user);
+
           return (
             <div
               key={thumbnail.id}
@@ -196,7 +220,23 @@ const FileExplorer: React.FC = () => {
                 }
               }}
             >
-              <Thumbnail src={thumbnail.src} type={thumbnail.type} />
+              <div className="relative">
+                <Thumbnail src={thumbnail.src} type={thumbnail.type} />
+                {showDelete ? (
+                  <button
+                    type="button"
+                    title="Delete file"
+                    disabled={deletingId === thumbnail.id}
+                    className="absolute right-1 top-1 rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white shadow hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDeleteFile(thumbnail);
+                    }}
+                  >
+                    {deletingId === thumbnail.id ? '…' : 'Delete'}
+                  </button>
+                ) : null}
+              </div>
               <p className="text-sm text-center text-gray-600 dark:text-gray-200 mt-2">{fileName}</p>
             </div>
           );
@@ -290,6 +330,10 @@ const FileExplorer: React.FC = () => {
             </p>
             {!isAuthenticated ? (
               <p className="text-sm text-amber-600 dark:text-amber-400">Sign in to upload images.</p>
+            ) : !canUpload ? (
+              <p className="text-sm text-bodydark dark:text-gray-400">
+                Viewer accounts cannot upload. Ask an administrator if you need upload access.
+              </p>
             ) : effectiveRoomOptions.length === 0 ? (
               <div className="text-sm text-bodydark dark:text-gray-400 space-y-1">
                 <p>No rooms available yet.</p>
