@@ -36,6 +36,8 @@ const FileExplorer: React.FC = () => {
   const [uploadOk, setUploadOk] = useState<string | null>(null);
   const [roomsFetchError, setRoomsFetchError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filePendingDelete, setFilePendingDelete] = useState<ApiMediaFile | null>(null);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,16 +159,29 @@ const FileExplorer: React.FC = () => {
   const canDeleteFiles = (authUser: AuthUser | null): boolean =>
     Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
 
-  const handleDeleteFile = async (file: ApiMediaFile) => {
-    if (!canDeleteFiles(user)) return;
-    const ok = window.confirm(`Delete “${file.file_name}”? This cannot be undone.`);
-    if (!ok) return;
-    setDeletingId(file.id);
+  const openDeleteModal = (f: ApiMediaFile) => {
+    if (!canDeleteFiles(user) || deletingId) return;
+    setDeleteModalError(null);
+    setFilePendingDelete(f);
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingId) return;
+    setFilePendingDelete(null);
+    setDeleteModalError(null);
+  };
+
+  const confirmDeleteFile = async () => {
+    const f = filePendingDelete;
+    if (!f || !canDeleteFiles(user)) return;
+    setDeleteModalError(null);
+    setDeletingId(f.id);
     try {
-      await deleteFileAsset(file.id);
+      await deleteFileAsset(f.id);
+      setFilePendingDelete(null);
       reloadExplorer();
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Delete failed');
+      setDeleteModalError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
       setDeletingId(null);
     }
@@ -226,14 +241,14 @@ const FileExplorer: React.FC = () => {
                   <button
                     type="button"
                     title="Delete file"
-                    disabled={deletingId === thumbnail.id}
+                    disabled={!!deletingId}
                     className="absolute right-1 top-1 rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white shadow hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={(e) => {
                       e.stopPropagation();
-                      void handleDeleteFile(thumbnail);
+                      openDeleteModal(thumbnail);
                     }}
                   >
-                    {deletingId === thumbnail.id ? '…' : 'Delete'}
+                    Delete
                   </button>
                 ) : null}
               </div>
@@ -415,6 +430,48 @@ const FileExplorer: React.FC = () => {
 
         <div className="p-4">{renderContent()}</div>
       </div>
+
+      {filePendingDelete && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="file-explorer-delete-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2
+              id="file-explorer-delete-title"
+              className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200"
+            >
+              Delete file
+            </h2>
+            <p className="mb-6 text-lg text-gray-900 dark:text-gray-200">
+              Delete &quot;{filePendingDelete.file_name}&quot;? This cannot be undone.
+            </p>
+            {deleteModalError ? (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400">{deleteModalError}</p>
+            ) : null}
+            <div className="mt-4 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={!!deletingId}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteFile()}
+                disabled={!!deletingId}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white shadow-md hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingId ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
