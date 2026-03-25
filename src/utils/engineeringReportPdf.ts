@@ -50,7 +50,7 @@ function drawFooters(doc: jsPDF): void {
     doc.setFontSize(8);
     doc.setTextColor(90);
     doc.text(
-      `Page ${i} of ${total}  ·  Field observation record — not for construction without engineer review`,
+      `Page ${i} of ${total}  ·  Observation record `,
       PAGE.margin,
       PAGE.h - PAGE.footer,
     );
@@ -173,9 +173,9 @@ export function buildFieldObservationPdf(input: FieldObservationPdfInput): jsPDF
   } = createLayout(doc);
 
   drawTitleBlock(
-    input.organizationLine ?? 'Construction documentation',
-    input.documentTitle,
-    input.assessmentMethodSubtitle,
+    input.organizationLine ?? 'SMART Construction Research Group',
+    input.documentTitle ?? 'A6_Stern Project Observation Report',
+    input.assessmentMethodSubtitle ?? '',
   );
 
   metaRow('Report reference', input.reportReference);
