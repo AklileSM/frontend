@@ -31,19 +31,51 @@ const FileExplorer: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadOk, setUploadOk] = useState<string | null>(null);
+  const [roomsFetchError, setRoomsFetchError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setRoomsFetchError(null);
     listRooms()
       .then((rooms) => {
-        setRoomOptions(rooms);
-        if (rooms.length > 0) {
-          setRoomSlug((prev) => (prev && rooms.some((r) => r.slug === prev) ? prev : rooms[0].slug));
+        if (!cancelled) {
+          setRoomOptions(rooms);
+          if (rooms.length > 0) {
+            setRoomSlug((prev) => (prev && rooms.some((r) => r.slug === prev) ? prev : rooms[0].slug));
+          }
         }
       })
-      .catch(() => {
-        setRoomOptions([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setRoomOptions([]);
+          setRoomsFetchError(err instanceof Error ? err.message : 'Could not load rooms.');
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const explorerFallbackRooms = useMemo((): ApiRoom[] => {
+    const out: ApiRoom[] = [];
+    for (const name of Object.keys(roomsForDate).sort((a, b) => a.localeCompare(b))) {
+      const m = name.match(/^Room\s+(\d+)$/i);
+      if (m) {
+        const slug = `room${m[1]}`;
+        out.push({ id: slug, name, slug, project_id: '' });
+      }
+    }
+    return out;
+  }, [roomsForDate]);
+
+  const effectiveRoomOptions = roomOptions.length > 0 ? roomOptions : explorerFallbackRooms;
+
+  useEffect(() => {
+    if (effectiveRoomOptions.length === 0) return;
+    setRoomSlug((prev) =>
+      prev && effectiveRoomOptions.some((r) => r.slug === prev) ? prev : effectiveRoomOptions[0].slug,
+    );
+  }, [effectiveRoomOptions]);
 
   useEffect(() => {
     if (!selectedDate) {
@@ -258,10 +290,25 @@ const FileExplorer: React.FC = () => {
             </p>
             {!isAuthenticated ? (
               <p className="text-sm text-amber-600 dark:text-amber-400">Sign in to upload images.</p>
-            ) : roomOptions.length === 0 ? (
-              <p className="text-sm text-bodydark dark:text-gray-400">No rooms available. Seed the database first.</p>
+            ) : effectiveRoomOptions.length === 0 ? (
+              <div className="text-sm text-bodydark dark:text-gray-400 space-y-1">
+                <p>No rooms available yet.</p>
+                {roomsFetchError ? (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    Room list API failed: {roomsFetchError}. Pick a date above so the explorer loads, then refresh — or
+                    redeploy the backend (fix for <code className="text-xs">/api/rooms</code> trailing slash).
+                  </p>
+                ) : (
+                  <p>Pick a date and wait for the room list below to load, or seed the database (bootstrap creates Room 1–6).</p>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                {roomOptions.length === 0 && explorerFallbackRooms.length > 0 ? (
+                  <p className="w-full text-xs text-gray-500 dark:text-gray-400">
+                    Using room list from the explorer (API <code className="text-xs">/api/rooms</code> did not return data).
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-1 min-w-[180px]">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Room</label>
                   <select
@@ -269,7 +316,7 @@ const FileExplorer: React.FC = () => {
                     onChange={(e) => setRoomSlug(e.target.value)}
                     className="rounded-md border border-stroke bg-white px-3 py-2 text-sm text-black dark:border-strokedark dark:bg-gray-800 dark:text-white"
                   >
-                    {roomOptions.map((r) => (
+                    {effectiveRoomOptions.map((r) => (
                       <option key={r.id} value={r.slug}>
                         {r.name}
                       </option>

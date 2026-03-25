@@ -197,8 +197,12 @@ export async function apiFetchCurrentUser(): Promise<ApiTokenResponse['user']> {
   return response.json() as Promise<ApiTokenResponse['user']>;
 }
 
-export function listRooms(): Promise<ApiRoom[]> {
-  return getJson<ApiRoom[]>('/rooms');
+export async function listRooms(): Promise<ApiRoom[]> {
+  try {
+    return await getJson<ApiRoom[]>('/rooms/');
+  } catch {
+    return getJson<ApiRoom[]>('/rooms');
+  }
 }
 
 export type UploadSingleResponse = {
