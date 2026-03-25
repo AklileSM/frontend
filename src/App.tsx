@@ -22,6 +22,7 @@ import HomePage from './pages/HomePage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Auth/Login';
+import Register from './pages/Auth/Register';
 import Unauthorized from './pages/Auth/Unauthorized';
 
 function App() {
@@ -55,7 +56,7 @@ function App() {
 
   if (loading) return <Loader />;
 
-  const isAuthPage = pathname === '/login' || pathname === '/unauthorized';
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/unauthorized';
 
   return (
     <AuthProvider>
@@ -63,6 +64,7 @@ function App() {
         {/* Public auth routes */}
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
         </Routes>
 

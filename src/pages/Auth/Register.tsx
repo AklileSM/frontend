@@ -1,22 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import DarkModeSwitcher from '../../components/Header/DarkModeSwitcher';
 
-const Login: React.FC = () => {
-  const { login } = useAuth();
+const Register: React.FC = () => {
+  const { register } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { from?: { pathname?: string } } };
-  const redirectTo = location.state?.from?.pathname;
-  const safeRedirect =
-    redirectTo &&
-    redirectTo !== '/login' &&
-    redirectTo !== '/register' &&
-    redirectTo !== '/unauthorized'
-      ? redirectTo
-      : '/';
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +19,15 @@ const Login: React.FC = () => {
     setError(null);
     try {
       setSubmitting(true);
-      await login({ username, password, remember });
-      navigate(safeRedirect, { replace: true });
+      await register({
+        username,
+        password,
+        email: email.trim() || undefined,
+        remember,
+      });
+      navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setSubmitting(false);
     }
@@ -56,8 +53,10 @@ const Login: React.FC = () => {
             alt="Logo"
             className="h-10 mx-auto hidden dark:block"
           />
-          <h1 className="mt-4 text-title-md font-semibold text-black dark:text-white">Sign in</h1>
-          <p className="text-body text-sm dark:text-bodydark mt-1">Access your project dashboard</p>
+          <h1 className="mt-4 text-title-md font-semibold text-black dark:text-white">Create account</h1>
+          <p className="text-body text-sm dark:text-bodydark mt-1">
+            The first registered user becomes <span className="font-medium">admin</span>; later users are viewers.
+          </p>
         </div>
 
         {error && (
@@ -76,7 +75,22 @@ const Login: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-2 border border-stroke rounded-md shadow-sm dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring focus:ring-primary focus:border-primary text-black dark:text-white"
-              placeholder="jane.doe"
+              placeholder="letters, numbers, . _ -"
+            />
+            <p className="text-xs text-body dark:text-bodydark mt-1">3–64 characters</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 border border-stroke rounded-md shadow-sm dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring focus:ring-primary focus:border-primary text-black dark:text-white"
+              placeholder="you@example.com"
             />
           </div>
 
@@ -86,44 +100,43 @@ const Login: React.FC = () => {
             </label>
             <input
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-stroke rounded-md shadow-sm dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring focus:ring-primary focus:border-primary text-black dark:text-white"
               placeholder="••••••••"
             />
+            <p className="text-xs text-body dark:text-bodydark mt-1">At least 8 characters</p>
           </div>
 
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="form-checkbox h-4 w-4 text-primary"
-              />
-              Remember me
-            </label>
-            <Link to="/register" className="text-sm text-primary hover:underline">
-              Create account
-            </Link>
-          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="form-checkbox h-4 w-4 text-primary"
+            />
+            Remember me on this device
+          </label>
 
           <button
             type="submit"
             disabled={submitting}
             className="w-full inline-flex items-center justify-center rounded-md bg-primary py-3 px-8 text-center font-medium text-white shadow-md transition-transform duration-300 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? 'Creating account…' : 'Register'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-body dark:text-bodydark">
-          Sign in is verified by the API. Use a registered username and password.
+        <p className="mt-6 text-center text-sm text-body dark:text-bodydark">
+          Already have an account?{' '}
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Register;

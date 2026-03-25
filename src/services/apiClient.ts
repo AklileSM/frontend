@@ -1,4 +1,32 @@
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+import { getAccessToken } from '../auth/authSession';
+
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+async function parseApiError(response: Response): Promise<string> {
+  try {
+    const j = (await response.json()) as { detail?: unknown };
+    const d = j.detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) {
+      return d
+        .map((x: { msg?: string }) => x?.msg)
+        .filter(Boolean)
+        .join(', ');
+    }
+  } catch {
+    /* ignore */
+  }
+  return `Request failed: ${response.status}`;
+}
+
+async function apiFetch(path: string, init?: RequestInit, withAuth = true): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (withAuth) {
+    const t = getAccessToken();
+    if (t) headers.set('Authorization', `Bearer ${t}`);
+  }
+  return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
 
 export interface ApiMediaFile {
   id: string;
@@ -70,9 +98,9 @@ async function explorerDatesSummaryFromRooms(): Promise<ExplorerDatesSummaryResp
 }
 
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init);
+  const response = await apiFetch(path, init, true);
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    throw new Error(await parseApiError(response));
   }
   return response.json() as Promise<T>;
 }
@@ -86,14 +114,14 @@ export function getExplorerByRoom(roomSlug: string): Promise<ExplorerByRoomRespo
 }
 
 export async function getExplorerDatesSummary(): Promise<ExplorerDatesSummaryResponse> {
-  const response = await fetch(`${API_BASE}/files/explorer/dates`);
+  const response = await apiFetch('/files/explorer/dates', undefined, true);
   if (response.ok) {
     return response.json() as Promise<ExplorerDatesSummaryResponse>;
   }
   if (response.status === 404) {
     return explorerDatesSummaryFromRooms();
   }
-  throw new Error(`Request failed: ${response.status}`);
+  throw new Error(await parseApiError(response));
 }
 
 export async function analyzeImage(imageUrl: string, fileId?: string): Promise<string> {
@@ -108,5 +136,64 @@ export async function analyzeImage(imageUrl: string, fileId?: string): Promise<s
     }),
   });
   return response.description;
+}
+
+export type ApiTokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+  };
+};
+
+export async function apiLogin(username: string, password: string): Promise<ApiTokenResponse> {
+  const response = await apiFetch(
+    '/auth/login',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    },
+    false,
+  );
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiTokenResponse>;
+}
+
+export async function apiRegister(
+  username: string,
+  password: string,
+  email?: string,
+): Promise<ApiTokenResponse> {
+  const response = await apiFetch(
+    '/auth/register',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        password,
+        email: email?.trim() || null,
+      }),
+    },
+    false,
+  );
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiTokenResponse>;
+}
+
+export async function apiFetchCurrentUser(): Promise<ApiTokenResponse['user']> {
+  const response = await apiFetch('/auth/me', { method: 'GET' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiTokenResponse['user']>;
 }
 
