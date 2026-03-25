@@ -4,18 +4,35 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import imageDescriptions from '../utils/imageDescriptions';
 import { fetchImageDescription } from '../services/imageDescriptionLogic';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
+
+type StaticViewerRoomState = {
+  imageUrl?: string;
+  fileId?: string;
+  room?: string;
+  displayFileName?: string;
+  roomLabel?: string;
+  captureDate?: string;
+};
 
 const StaticViewerRoom: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const imageUrl = location.state?.imageUrl || "/Images/panoramas/20241007/room02.jpg";
-  const fileId = location.state?.fileId;
+  const state = (location.state || {}) as StaticViewerRoomState;
+  const imageUrl = state.imageUrl || '/Images/panoramas/20241007/room02.jpg';
+  const fileId = state.fileId;
+  const room = state.room || 'defaultRoom';
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fileName = imageUrl.split('/').pop();
-  const folderName = imageUrl.split('/')[3];
-  const formattedDate = `${folderName.slice(0, 4)}-${folderName.slice(4, 6)}-${folderName.slice(6, 8)}`;
-  const room = location.state?.room || 'defaultRoom';
+  const viewingFileName =
+    (state.displayFileName && state.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
+
+  const formattedDate =
+    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+    extractDateFromImageRef(imageUrl) ||
+    'Unknown Date';
+
+  const fileName = viewingFileName;
 
   // State for modal, checkboxes, and text fields
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,10 +79,15 @@ const StaticViewerRoom: React.FC = () => {
   //   };
   // }, []);
 
-  let roomNumber = "Unknown Room";
-  const roomMatch = fileName.match(/room(\d+)/i);
-  if (roomMatch) {
-    roomNumber = `Room ${parseInt(roomMatch[1], 10)}`; // Extracts room number and removes leading zero if any
+  let roomNumber: string;
+  if (state.roomLabel && state.roomLabel.trim()) {
+    roomNumber = state.roomLabel.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
+    }
   }
 
   const textareaClass = `w-full px-4 py-2 border rounded-md shadow-sm dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring focus:ring-primary focus:border-primary ${
@@ -311,12 +333,11 @@ const StaticViewerRoom: React.FC = () => {
       <div className="flex justify-between items-center border-b border-gray-300 dark:border-strokedark pb-4">
         <div>
           <h1 className="text-xl font-bold text-black dark:text-white">Static Viewer</h1>
-          <p className="text-sm text-black dark:text-gray-400 mt-1">
-            Viewing: <span className="font-semibold">{fileName}</span>
-            <div className="flex justify-center space-x-1 mt-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{roomNumber},</p>
-              <span className="text-gray-400"> (Date: {formattedDate})</span>
-            </div>
+          <p className="mt-1 text-sm text-black dark:text-gray-400">
+            Viewing: <span className="font-semibold">{viewingFileName}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {roomNumber}, (Date: {formattedDate})
           </p>
         </div>
 

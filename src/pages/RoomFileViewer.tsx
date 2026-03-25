@@ -94,7 +94,16 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
           className="flex flex-col"
           onClick={() => {
             if (thumbnail.type === 'image') {
-              navigate('/staticViewerRoom', { state: { imageUrl: thumbnail.full_src || thumbnail.src, room, fileId: thumbnail.id } });
+              navigate('/staticViewerRoom', {
+                state: {
+                  imageUrl: thumbnail.full_src || thumbnail.src,
+                  room,
+                  fileId: thumbnail.id,
+                  displayFileName: thumbnail.file_name,
+                  roomLabel: roomName || room,
+                  captureDate: thumbnail.capture_date,
+                },
+              });
             } else if (thumbnail.type === 'pointcloud') {
               navigate('/PCD', { state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id } });
             }

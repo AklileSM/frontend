@@ -5,13 +5,23 @@ import jsPDF from 'jspdf';
 import imageDescriptions from '../utils/imageDescriptions';
 import { PDFDocument } from 'pdf-lib';
 import { fetchImageDescription } from '../services/imageDescriptionLogic';
+import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
 
+type StaticViewerState = {
+  imageUrl?: string;
+  fileId?: string;
+  displayFileName?: string;
+  roomLabel?: string;
+  /** YYYY-MM-DD from API explorer */
+  captureDate?: string;
+};
 
 const StaticViewer: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const imageUrl = location.state?.imageUrl || "/Images/panoramas/20241007/room02.jpg";
-  const fileId = location.state?.fileId;
+  const state = (location.state || {}) as StaticViewerState;
+  const imageUrl = state.imageUrl || '/Images/panoramas/20241007/room02.jpg';
+  const fileId = state.fileId;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // State for modal, checkboxes, and text fields
@@ -110,40 +120,26 @@ const StaticViewer: React.FC = () => {
   //   };
   // }, []);
 
-  const extractDateFromPath = (path: string): string => {
-    // Split the path into parts
-    const parts: string[] = path.split('/');
-  
-    // Look for a segment that matches the YYYYMMDD pattern
-    const dateSegment: string | undefined = parts.find((segment: string) => /^\d{8}$/.test(segment));
-  
-    if (!dateSegment) {
-      throw new Error("Date not found in the path");
-    }
-  
-    // Format the date as YYYY-MM-DD
-    return `${dateSegment.slice(0, 4)}-${dateSegment.slice(4, 6)}-${dateSegment.slice(6, 8)}`;
-  };
+  const viewingFileName =
+    (state.displayFileName && state.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
 
-  const fileName = imageUrl.split('/').pop();
-  let formattedDate: string;
+  const formattedDate =
+    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+    extractDateFromImageRef(imageUrl) ||
+    'Unknown Date';
 
-  try {
-    formattedDate = extractDateFromPath(imageUrl);
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error("Error extracting date:", error.message);
-    } else {
-      console.error("An unknown error occurred:", error);
+  let roomNumber: string;
+  if (state.roomLabel && state.roomLabel.trim()) {
+    roomNumber = state.roomLabel.trim();
+  } else {
+    roomNumber = 'Unknown Room';
+    const roomMatch = viewingFileName.match(/room(\d+)/i);
+    if (roomMatch) {
+      roomNumber = `Room ${parseInt(roomMatch[1], 10)}`;
     }
-    formattedDate = "Unknown Date"; // Fallback if date extraction fails
   }
 
-  let roomNumber = "Unknown Room";
-  const roomMatch = fileName.match(/room(\d+)/i);
-  if (roomMatch) {
-    roomNumber = `Room ${parseInt(roomMatch[1], 10)}`; // Extracts room number and removes leading zero if any
-  }
+  const fileName = viewingFileName;
 
   const handleGenerateAutomaticLabeling = () => {
     const relativePath = imageUrl.split('Images/')[1];
@@ -386,13 +382,11 @@ const StaticViewer: React.FC = () => {
       <div className="flex justify-between items-center border-b border-gray-300 dark:border-strokedark pb-4">
         <div>
           <h1 className="text-xl font-bold text-black dark:text-white">Static Viewer</h1>
-          <p className="text-sm text-black dark:text-gray-400 mt-1">
-            Viewing: <span className="font-semibold">{fileName}</span>
-            <div className="flex justify-center space-x-1 mt-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{roomNumber},</p>
-              <span className="text-gray-400"> (Date: {formattedDate})</span>
-            </div>
-            
+          <p className="mt-1 text-sm text-black dark:text-gray-400">
+            Viewing: <span className="font-semibold">{viewingFileName}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {roomNumber}, (Date: {formattedDate})
           </p>
         </div>
 

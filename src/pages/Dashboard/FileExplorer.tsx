@@ -211,7 +211,7 @@ const FileExplorer: React.FC = () => {
     }
   };
 
-  const renderThumbnails = (thumbnails: ApiMediaFile[]) => {
+  const renderThumbnails = (thumbnails: ApiMediaFile[], roomDisplayName: string) => {
     return (
       <div className="grid grid-cols-2 gap-4">
         {thumbnails.map((thumbnail) => {
@@ -226,7 +226,13 @@ const FileExplorer: React.FC = () => {
               onClick={() => {
                 if (thumbnail.type === 'image') {
                   navigate('/staticViewer', {
-                    state: { imageUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id },
+                    state: {
+                      imageUrl: thumbnail.full_src || thumbnail.src,
+                      fileId: thumbnail.id,
+                      displayFileName: thumbnail.file_name,
+                      roomLabel: roomDisplayName,
+                      captureDate: thumbnail.capture_date,
+                    },
                   });
                 } else if (thumbnail.type === 'pointcloud') {
                   navigate('/PCD', {
@@ -312,7 +318,7 @@ const FileExplorer: React.FC = () => {
           }}
         >
           {(media[activeTab] || []).length > 0 ? (
-            renderThumbnails(media[activeTab])
+            renderThumbnails(media[activeTab], room)
           ) : (
             <p className="text-center text-bodydark dark:text-gray-400 mt-2">
               No {activeTab} available for this room
