@@ -1,4 +1,4 @@
-﻿const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export interface ApiMediaFile {
   id: string;
@@ -26,6 +26,16 @@ export interface ExplorerByRoomResponse {
   dates: Record<string, ApiRoomMediaGroup>;
 }
 
+export interface DateMediaCounts {
+  images: number;
+  videos: number;
+  pointclouds: number;
+}
+
+export interface ExplorerDatesSummaryResponse {
+  dates: Record<string, DateMediaCounts>;
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
@@ -40,6 +50,10 @@ export function getExplorerByDate(date: string): Promise<ExplorerByDateResponse>
 
 export function getExplorerByRoom(roomSlug: string): Promise<ExplorerByRoomResponse> {
   return getJson<ExplorerByRoomResponse>(`/files/explorer/room/${roomSlug}`);
+}
+
+export function getExplorerDatesSummary(): Promise<ExplorerDatesSummaryResponse> {
+  return getJson<ExplorerDatesSummaryResponse>('/files/explorer/dates');
 }
 
 export async function analyzeImage(imageUrl: string, fileId?: string): Promise<string> {

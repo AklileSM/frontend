@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
 import { useSelectedDate } from '../components/selectedDate ';
 import { useNavigate } from 'react-router-dom';
+import { useCaptureDatesSummary } from '../hooks/useCaptureDatesSummary';
 
 const HomeCalendar: React.FC = () => {
   const { setSelectedDate } = useSelectedDate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hoveredDateData, setHoveredDateData] = useState<{ images: number; videos: number; pointclouds: number } | null>(null);
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
-
-  const dataByDate: { [key: string]: { images: number; videos: number; pointclouds: number } } = {
-    '2024-10-07': { images: 2, videos: 0, pointclouds: 2 },
-    '2024-10-09': { images: 5, videos: 0, pointclouds: 1 },
-    '2024-10-11': { images: 4, videos: 0, pointclouds: 0 },
-    '2024-10-14': { images: 4, videos: 0, pointclouds: 0 },
-    '2024-10-16': { images: 4, videos: 0, pointclouds: 0 },
-  };
+  const { dataByDate, loading, error } = useCaptureDatesSummary();
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -69,6 +63,14 @@ const HomeCalendar: React.FC = () => {
 
   return (
     <div className="relative">
+      {error && (
+        <p className="mb-1 text-[10px] text-amber-600 dark:text-amber-400" title={error}>
+          Calendar data unavailable
+        </p>
+      )}
+      {loading && !error && (
+        <p className="mb-1 text-[10px] text-gray-500 dark:text-bodydark2">Loading dates…</p>
+      )}
       <div className="flex justify-between items-center mb-2">
         <button onClick={handlePrevMonth} className="px-2 py-1 text-primary text-sm">
           &#8592;

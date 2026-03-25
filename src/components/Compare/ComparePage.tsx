@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import CompareCalendar from './CompareCalendar';
 import CompareFileExplorer from './CompareFileExplorer';
 import Compare360Viewer from './Compare360Viewer';
@@ -6,9 +6,14 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import ComparePCDViewer from './ComparePCDViewer';
 import { PDFDocument } from 'pdf-lib'; // Install this with npm
+import { useCaptureDatesSummary } from '../../hooks/useCaptureDatesSummary';
 
 const ComparePage: React.FC = () => {
-  const availableDates = ['2024-10-09', '2024-10-11', '2024-10-14',];
+  const { dataByDate } = useCaptureDatesSummary();
+  const availableDates = useMemo(
+    () => Object.keys(dataByDate).sort(),
+    [dataByDate],
+  );
   const navigate = useNavigate();
 
   const [leftSelectedDate, setLeftSelectedDate] = useState<string | null>(null);
