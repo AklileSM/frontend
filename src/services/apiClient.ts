@@ -197,3 +197,46 @@ export async function apiFetchCurrentUser(): Promise<ApiTokenResponse['user']> {
   return response.json() as Promise<ApiTokenResponse['user']>;
 }
 
+export function listRooms(): Promise<ApiRoom[]> {
+  return getJson<ApiRoom[]>('/rooms');
+}
+
+export type UploadSingleResponse = {
+  id: string;
+  room: string;
+  media_type: string;
+  file_name: string;
+  capture_date: string;
+};
+
+export async function uploadSingleFile(params: {
+  file: File;
+  roomSlug: string;
+  mediaType: 'image' | 'video' | 'pointcloud';
+  captureDate: string;
+}): Promise<UploadSingleResponse> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('You must be signed in to upload.');
+  }
+
+  const form = new FormData();
+  form.append('file', params.file);
+  form.append('room_slug', params.roomSlug);
+  form.append('media_type', params.mediaType);
+  form.append('capture_date', params.captureDate);
+
+  const response = await fetch(`${API_BASE}/upload/single`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<UploadSingleResponse>;
+}
+

@@ -1,18 +1,49 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useNavigate } from 'react-router-dom';
-import { ApiMediaFile, ApiRoomMediaGroup, getExplorerByDate } from '../../services/apiClient';
+import {
+  ApiMediaFile,
+  ApiRoom,
+  ApiRoomMediaGroup,
+  getExplorerByDate,
+  listRooms,
+  uploadSingleFile,
+} from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 const FileExplorer: React.FC = () => {
   const { selectedDate } = useSelectedDate();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
+
+  const [roomOptions, setRoomOptions] = useState<ApiRoom[]>([]);
+  const [roomSlug, setRoomSlug] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadOk, setUploadOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    listRooms()
+      .then((rooms) => {
+        setRoomOptions(rooms);
+        if (rooms.length > 0) {
+          setRoomSlug((prev) => (prev && rooms.some((r) => r.slug === prev) ? prev : rooms[0].slug));
+        }
+      })
+      .catch(() => {
+        setRoomOptions([]);
+      });
+  }, []);
 
   useEffect(() => {
     if (!selectedDate) {
@@ -45,7 +76,11 @@ const FileExplorer: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate]);
+  }, [selectedDate, refreshKey]);
+
+  const reloadExplorer = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const thumbnailsForSelectedDate = useMemo(() => roomsForDate, [roomsForDate]);
 
@@ -74,31 +109,58 @@ const FileExplorer: React.FC = () => {
 
   useEffect(() => {
     const initialCollapsedRooms: { [room: string]: boolean } = {};
-    
-    // Collapse rooms that have no data for the active tab
+
     Object.entries(thumbnailsForSelectedDate).forEach(([room, media]) => {
       const hasFiles = (media[activeTab] || []).length > 0;
-      initialCollapsedRooms[room] = !hasFiles;  // Set true (collapsed) if no files
+      initialCollapsedRooms[room] = !hasFiles;
     });
 
     setCollapsedRooms(initialCollapsedRooms);
   }, [activeTab, thumbnailsForSelectedDate]);
 
+  const handleUpload = async () => {
+    if (!selectedDate || !file || !roomSlug) return;
+    setUploadError(null);
+    setUploadOk(null);
+    setUploading(true);
+    try {
+      await uploadSingleFile({
+        file,
+        roomSlug,
+        mediaType: 'image',
+        captureDate: selectedDate,
+      });
+      setUploadOk(`Uploaded “${file.name}”.`);
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setActiveTab('images');
+      reloadExplorer();
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const renderThumbnails = (thumbnails: ApiMediaFile[]) => {
     return (
-      <div className="grid grid-cols-2 gap-4"> {/* Add grid layout to control layout and prevent stretching */}
-        {thumbnails.map((thumbnail, index) => {
+      <div className="grid grid-cols-2 gap-4">
+        {thumbnails.map((thumbnail) => {
           const fileName = thumbnail.file_name;
-  
+
           return (
             <div
-              key={index}
-              className="flex flex-col mb-4 max-w-s" // Constrain width with max-w-xs to avoid stretching
+              key={thumbnail.id}
+              className="flex flex-col mb-4 max-w-s"
               onClick={() => {
                 if (thumbnail.type === 'image') {
-                  navigate('/staticViewer', { state: { imageUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id } });
+                  navigate('/staticViewer', {
+                    state: { imageUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id },
+                  });
                 } else if (thumbnail.type === 'pointcloud') {
-                  navigate('/PCD', { state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id } });
+                  navigate('/PCD', {
+                    state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id },
+                  });
                 }
               }}
             >
@@ -123,7 +185,7 @@ const FileExplorer: React.FC = () => {
     if (Object.keys(thumbnailsForSelectedDate).length === 0) {
       return <p className="text-center text-bodydark dark:text-gray-400">No files available</p>;
     }
-  
+
     return Object.entries(thumbnailsForSelectedDate).map(([room, media]) => (
       <div key={room} className="mb-4">
         <div
@@ -152,14 +214,13 @@ const FileExplorer: React.FC = () => {
             />
           </svg>
         </div>
-  
-        {/* Collapsible Room Content with Animation */}
+
         <div
           style={{
-            maxHeight: collapsedRooms[room] ? '0px' : '1000px',  // Use a large max-height for smooth transitions
+            maxHeight: collapsedRooms[room] ? '0px' : '1000px',
             opacity: collapsedRooms[room] ? 0 : 1,
             overflow: 'hidden',
-            transition: 'max-height 0.5s ease, opacity 0.5s ease',  // Adjust timing as needed
+            transition: 'max-height 0.5s ease, opacity 0.5s ease',
             marginTop: collapsedRooms[room] ? '0px' : '1rem',
           }}
         >
@@ -174,7 +235,6 @@ const FileExplorer: React.FC = () => {
       </div>
     ));
   };
-  
 
   return (
     <>
@@ -189,7 +249,58 @@ const FileExplorer: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab Navigation */}
+        {selectedDate && (
+          <div className="p-4 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/30">
+            <h2 className="text-sm font-semibold text-black dark:text-white mb-3">Upload image</h2>
+            <p className="text-xs text-bodydark dark:text-gray-400 mb-3">
+              Files are stored for this selected date and the room you pick. They appear under that room in the lists
+              below (same as existing captures).
+            </p>
+            {!isAuthenticated ? (
+              <p className="text-sm text-amber-600 dark:text-amber-400">Sign in to upload images.</p>
+            ) : roomOptions.length === 0 ? (
+              <p className="text-sm text-bodydark dark:text-gray-400">No rooms available. Seed the database first.</p>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Room</label>
+                  <select
+                    value={roomSlug}
+                    onChange={(e) => setRoomSlug(e.target.value)}
+                    className="rounded-md border border-stroke bg-white px-3 py-2 text-sm text-black dark:border-strokedark dark:bg-gray-800 dark:text-white"
+                  >
+                    {roomOptions.map((r) => (
+                      <option key={r.id} value={r.slug}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Image file</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    className="text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={uploading || !file}
+                  onClick={handleUpload}
+                  className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploading ? 'Uploading…' : 'Upload'}
+                </button>
+              </div>
+            )}
+            {uploadError && <p className="mt-2 text-sm text-red-500">{uploadError}</p>}
+            {uploadOk && <p className="mt-2 text-sm text-green-600 dark:text-green-400">{uploadOk}</p>}
+          </div>
+        )}
+
         <div className="flex border-b border-gray-300 dark:border-strokedark">
           <button
             className={`flex-1 px-4 py-2 text-sm font-medium ${activeTab === 'images' ? 'border-b-2 border-primary text-primary dark:text-white' : 'text-bodydark1 dark:text-gray-300 hover:text-primary'}`}
@@ -211,9 +322,7 @@ const FileExplorer: React.FC = () => {
           </button>
         </div>
 
-        <div className="p-4">
-          {renderContent()}
-        </div>
+        <div className="p-4">{renderContent()}</div>
       </div>
     </>
   );
