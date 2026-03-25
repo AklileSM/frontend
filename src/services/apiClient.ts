@@ -36,6 +36,39 @@ export interface ExplorerDatesSummaryResponse {
   dates: Record<string, DateMediaCounts>;
 }
 
+export interface ApiRoom {
+  id: string;
+  name: string;
+  slug: string;
+  project_id: string;
+}
+
+function addRoomGroupsToDateCounts(
+  acc: Record<string, DateMediaCounts>,
+  dates: Record<string, ApiRoomMediaGroup>,
+): void {
+  for (const [day, group] of Object.entries(dates)) {
+    const cur = acc[day] ?? { images: 0, videos: 0, pointclouds: 0 };
+    cur.images += group.images?.length ?? 0;
+    cur.videos += group.videos?.length ?? 0;
+    cur.pointclouds += group.pointclouds?.length ?? 0;
+    acc[day] = cur;
+  }
+}
+
+async function explorerDatesSummaryFromRooms(): Promise<ExplorerDatesSummaryResponse> {
+  const rooms = await getJson<ApiRoom[]>('/rooms');
+  const byDate: Record<string, DateMediaCounts> = {};
+  await Promise.all(
+    rooms.map((room) =>
+      getExplorerByRoom(room.slug).then((res) => {
+        addRoomGroupsToDateCounts(byDate, res.dates ?? {});
+      }),
+    ),
+  );
+  return { dates: byDate };
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
@@ -52,8 +85,15 @@ export function getExplorerByRoom(roomSlug: string): Promise<ExplorerByRoomRespo
   return getJson<ExplorerByRoomResponse>(`/files/explorer/room/${roomSlug}`);
 }
 
-export function getExplorerDatesSummary(): Promise<ExplorerDatesSummaryResponse> {
-  return getJson<ExplorerDatesSummaryResponse>('/files/explorer/dates');
+export async function getExplorerDatesSummary(): Promise<ExplorerDatesSummaryResponse> {
+  const response = await fetch(`${API_BASE}/files/explorer/dates`);
+  if (response.ok) {
+    return response.json() as Promise<ExplorerDatesSummaryResponse>;
+  }
+  if (response.status === 404) {
+    return explorerDatesSummaryFromRooms();
+  }
+  throw new Error(`Request failed: ${response.status}`);
 }
 
 export async function analyzeImage(imageUrl: string, fileId?: string): Promise<string> {
