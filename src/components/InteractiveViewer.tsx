@@ -10,6 +10,8 @@ import {
   fieldObservationReportReference,
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
+import { createReportWithPdf } from '../services/apiClient';
+import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
 
 type InteractiveViewerState = {
   imageUrl?: string;
@@ -119,7 +121,7 @@ const InteractiveViewer: React.FC = () => {
     setNotes('');
   };
 
-  const handleModalPublish = () => {
+  const handleModalPublish = async () => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -151,6 +153,25 @@ const InteractiveViewer: React.FC = () => {
       },
       annexScreenshots: includeScreenshot && capturedScreenshots.length > 0 ? capturedScreenshots : undefined,
     });
+    const pdfBlob = doc.output('blob');
+    if (navState.fileId?.trim()) {
+      try {
+        await createReportWithPdf({
+          pdfBlob,
+          fileId: navState.fileId.trim(),
+          filename: `FieldObservation_360_${ref}.pdf`,
+          aiDescription: null,
+          manualObservations: includeNotes ? (notes || null) : null,
+          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+        });
+      } catch (e) {
+        alert(
+          e instanceof Error
+            ? `${e.message} The PDF was still downloaded.`
+            : 'Could not save the report on the server. The PDF was still downloaded.',
+        );
+      }
+    }
     doc.save(`FieldObservation_360_${ref}.pdf`);
     setCapturedScreenshots([]);
     closePublishModal();

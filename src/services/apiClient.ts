@@ -253,3 +253,39 @@ export async function deleteFileAsset(fileId: string): Promise<void> {
   }
 }
 
+/** Upload a published field-observation PDF: stored in MinIO and recorded in DB for the signed-in user. */
+export async function createReportWithPdf(params: {
+  pdfBlob: Blob;
+  fileId: string;
+  filename?: string;
+  aiDescription?: string | null;
+  manualObservations?: string | null;
+  flags?: string[];
+}): Promise<void> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Sign in to store reports on the server.');
+  }
+
+  const form = new FormData();
+  form.append('file', params.pdfBlob, params.filename ?? 'report.pdf');
+  form.append('file_id', params.fileId);
+  if (params.aiDescription != null && params.aiDescription !== '') {
+    form.append('ai_description', params.aiDescription);
+  }
+  if (params.manualObservations != null && params.manualObservations !== '') {
+    form.append('manual_observations', params.manualObservations);
+  }
+  form.append('flags_json', JSON.stringify(params.flags ?? []));
+
+  const response = await fetch(`${API_BASE}/reports/with-pdf`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+

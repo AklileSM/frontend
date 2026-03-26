@@ -10,6 +10,8 @@ import {
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
+import { createReportWithPdf } from '../services/apiClient';
+import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
 
 type StaticViewerState = {
   imageUrl?: string;
@@ -217,11 +219,29 @@ const StaticViewer: React.FC = () => {
     // Save the consolidated PDF and trigger download
     const consolidatedPdfBytes = await consolidatedPdf.save();
     const blob = new Blob([new Uint8Array(consolidatedPdfBytes)], { type: 'application/pdf' });
+    if (fileId?.trim()) {
+      try {
+        await createReportWithPdf({
+          pdfBlob: blob,
+          fileId: fileId.trim(),
+          filename: 'Consolidated_Reports.pdf',
+          aiDescription: null,
+          manualObservations: `Consolidated field observation report (${savedReports.current.length} part(s)).`,
+          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+        });
+      } catch (e) {
+        alert(
+          e instanceof Error
+            ? `${e.message} The PDF was still downloaded.`
+            : 'Could not save the report on the server. The PDF was still downloaded.',
+        );
+      }
+    }
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'Consolidated_Reports.pdf';
     link.click();
-  
+
     setIsModalOpen(false);
   };
 
@@ -232,7 +252,7 @@ const StaticViewer: React.FC = () => {
     setValidationMessage(null);
   };
 
-  const generatePDFReport = (action: 'save' | 'publish') => {
+  const generatePDFReport = async (action: 'save' | 'publish') => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -279,15 +299,15 @@ const StaticViewer: React.FC = () => {
     if (action === 'save') {
       alert('Report saved successfully!');
     } else if (action === 'publish') {
-      publishReports(); // Consolidate all saved reports into one
+      await publishReports();
     }
   };
-  
-  const handleModalPublish = () => {
+
+  const handleModalPublish = async () => {
     if (!includeAutoLabeling && !includeAdditionalComments) {
       setValidationMessage('Please select at least one option to include in the report.');
     } else {
-      generatePDFReport('publish');
+      await generatePDFReport('publish');
       closePublishModal();
     }
   };

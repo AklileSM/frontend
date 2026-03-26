@@ -9,6 +9,8 @@ import {
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
+import { createReportWithPdf } from '../services/apiClient';
+import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
 
 type StaticViewerRoomState = {
   imageUrl?: string;
@@ -202,7 +204,7 @@ const StaticViewerRoom: React.FC = () => {
     setValidationMessage(null);
   };
 
-  const generatePDFReport = () => {
+  const generatePDFReport = async () => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -234,16 +236,33 @@ const StaticViewerRoom: React.FC = () => {
         safetyConcern: safetyIssue,
       },
     });
+    const pdfBlob = doc.output('blob');
+    if (fileId?.trim()) {
+      try {
+        await createReportWithPdf({
+          pdfBlob,
+          fileId: fileId.trim(),
+          filename: `FieldObservation_${ref}.pdf`,
+          aiDescription: includeAutoLabeling ? (autoLabelingText || displayedText || null) : null,
+          manualObservations: includeAdditionalComments ? (additionalCommentsText || null) : null,
+          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+        });
+      } catch (e) {
+        alert(
+          e instanceof Error
+            ? `${e.message} The PDF was still downloaded.`
+            : 'Could not save the report on the server. The PDF was still downloaded.',
+        );
+      }
+    }
     doc.save(`FieldObservation_${ref}.pdf`);
   };
-  
-  
 
-  const handleModalPublish = () => {
+  const handleModalPublish = async () => {
     if (!includeAutoLabeling && !includeAdditionalComments) {
       setValidationMessage('Please select at least one option to include in the report.');
     } else {
-      generatePDFReport();
+      await generatePDFReport();
       closePublishModal();
     }
   };
