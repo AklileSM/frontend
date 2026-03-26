@@ -253,6 +253,23 @@ export async function deleteFileAsset(fileId: string): Promise<void> {
   }
 }
 
+export interface ApiReport {
+  id: string;
+  file_id: string;
+  ai_description: string | null;
+  manual_observations: string | null;
+  flags: string[];
+  screenshots: string[];
+  created_by: string | null;
+  /** Presigned MinIO URL; expires after backend `presigned_url_expiry_seconds`. */
+  pdf_url: string | null;
+  created_at: string;
+}
+
+export function listReports(): Promise<ApiReport[]> {
+  return getJson<ApiReport[]>('/reports/');
+}
+
 /** Upload a published field-observation PDF: stored in MinIO and recorded in DB for the signed-in user. */
 export async function createReportWithPdf(params: {
   pdfBlob: Blob;

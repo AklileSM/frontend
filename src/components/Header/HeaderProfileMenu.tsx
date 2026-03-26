@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const HeaderProfileMenu = () => {
@@ -49,11 +49,17 @@ const HeaderProfileMenu = () => {
           <div className="border-b border-stroke px-4 py-3 dark:border-strokedark">
             <p className="text-xs text-gray-500 dark:text-gray-400">Signed in as</p>
             <p className="truncate font-semibold text-black dark:text-white">{user.username}</p>
-            {user.email ? (
-              <p className="mt-0.5 truncate text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
-            ) : null}
+      
             <p className="mt-2 text-xs font-medium capitalize text-primary">{user.role}</p>
           </div>
+          <Link
+            to="/profile"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="block w-full px-4 py-2.5 text-left text-sm font-medium text-black hover:bg-gray-100 dark:text-white dark:hover:bg-meta-4"
+          >
+            Profile
+          </Link>
           <button
             type="button"
             role="menuitem"

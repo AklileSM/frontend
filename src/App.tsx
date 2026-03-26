@@ -24,6 +24,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Unauthorized from './pages/Auth/Unauthorized';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -47,6 +48,8 @@ function App() {
         return "Projects | Project Y";
       case "/":
         return "Home | A6_stern";
+      case "/profile":
+        return "Profile | A6_stern";
       default:
         return "Projects | A6_stern";
     }
@@ -109,6 +112,7 @@ function App() {
                   <Route path="/RoomExplorer" element={<ProtectedRoute><RoomFileViewer room={''} /></ProtectedRoute>} />
                   <Route path="/PCD" element={<ProtectedRoute><PCDViewer /></ProtectedRoute>} />
                   <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 </Routes>
               </DefaultLayout>
             )}
