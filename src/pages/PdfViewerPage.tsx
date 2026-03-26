@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
@@ -16,38 +16,33 @@ export type PdfViewerLocationState = {
   title?: string;
 };
 
-/**
- * Full-featured in-app PDF reader (zoom, search, thumbnails, download, print, rotate, full screen)
- * via @react-pdf-viewer/default-layout. Open with:
- * `navigate('/pdfViewer', { state: { pdfUrl, title } })`.
- */
-const PdfViewerPage: React.FC = () => {
+/** Empty state — must not call defaultLayoutPlugin() (it uses hooks). */
+const PdfViewerEmpty: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = (location.state || {}) as Partial<PdfViewerLocationState>;
+  return (
+    <div className="mx-auto max-w-lg px-4 py-16 text-center">
+      <h1 className="text-xl font-semibold text-black dark:text-white">No PDF to display</h1>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        Open a report from your profile or use the app navigation that links to this viewer.
+      </p>
+      <button
+        type="button"
+        onClick={() => navigate('/profile', { replace: true })}
+        className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white shadow hover:opacity-90"
+      >
+        Go to profile
+      </button>
+    </div>
+  );
+};
 
-  const defaultLayoutPluginInstance = useMemo(() => defaultLayoutPlugin(), []);
-
-  const pdfUrl = typeof state.pdfUrl === 'string' && state.pdfUrl.trim() ? state.pdfUrl.trim() : '';
-  const title = state.title?.trim() || 'PDF document';
-
-  if (!pdfUrl) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-black dark:text-white">No PDF to display</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Open a report from your profile or use the app navigation that links to this viewer.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/profile', { replace: true })}
-          className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white shadow hover:opacity-90"
-        >
-          Go to profile
-        </button>
-      </div>
-    );
-  }
+/**
+ * defaultLayoutPlugin() must run at the top level of a component — not inside useMemo or conditionals
+ * (it calls useMemo and other hooks internally). See React error #300 if misused.
+ */
+const PdfViewerWithDocument: React.FC<{ pdfUrl: string; title: string }> = ({ pdfUrl, title }) => {
+  const navigate = useNavigate();
+  const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
   return (
     <div className="flex w-full flex-col bg-white dark:bg-boxdark">
@@ -83,6 +78,24 @@ const PdfViewerPage: React.FC = () => {
       </div>
     </div>
   );
+};
+
+/**
+ * Full-featured in-app PDF reader (zoom, search, thumbnails, download, print, rotate, full screen).
+ * Open with: `navigate('/pdfViewer', { state: { pdfUrl, title } })`.
+ */
+const PdfViewerPage: React.FC = () => {
+  const location = useLocation();
+  const state = (location.state || {}) as Partial<PdfViewerLocationState>;
+
+  const pdfUrl = typeof state.pdfUrl === 'string' && state.pdfUrl.trim() ? state.pdfUrl.trim() : '';
+  const title = state.title?.trim() || 'PDF document';
+
+  if (!pdfUrl) {
+    return <PdfViewerEmpty />;
+  }
+
+  return <PdfViewerWithDocument pdfUrl={pdfUrl} title={title} />;
 };
 
 export default PdfViewerPage;
