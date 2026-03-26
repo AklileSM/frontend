@@ -270,6 +270,23 @@ export function listReports(): Promise<ApiReport[]> {
   return getJson<ApiReport[]>('/reports/');
 }
 
+export interface ApiMyUpload {
+  id: string;
+  room_slug: string;
+  room_name: string;
+  media_type: string;
+  file_name: string;
+  capture_date: string;
+  created_at: string;
+  src: string;
+  full_src: string | null;
+}
+
+/** Admin/manager only: file assets recorded as uploaded by this user. */
+export function listMyUploads(): Promise<ApiMyUpload[]> {
+  return getJson<ApiMyUpload[]>('/files/my-uploads');
+}
+
 /** Upload a published field-observation PDF: stored in MinIO and recorded in DB for the signed-in user. */
 export async function createReportWithPdf(params: {
   pdfBlob: Blob;
