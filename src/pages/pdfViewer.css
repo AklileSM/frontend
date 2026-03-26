@@ -1,0 +1,8 @@
+/* Let react-pdf-viewer fill the shell (plugin uses nested flex + scroll). */
+.pdf-viewer-shell .rpv-core__viewer {
+  height: 100%;
+}
+
+.pdf-viewer-shell .rpv-default-layout__container {
+  height: 100%;
+}

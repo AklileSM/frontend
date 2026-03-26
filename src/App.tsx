@@ -25,6 +25,7 @@ import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Unauthorized from './pages/Auth/Unauthorized';
 import ProfilePage from './pages/ProfilePage';
+import PdfViewerPage from './pages/PdfViewerPage';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -50,6 +51,8 @@ function App() {
         return "Home | A6_stern";
       case "/profile":
         return "Profile | A6_stern";
+      case "/pdfViewer":
+        return "PDF | A6_stern";
       default:
         return "Projects | A6_stern";
     }
@@ -113,6 +116,7 @@ function App() {
                   <Route path="/PCD" element={<ProtectedRoute><PCDViewer /></ProtectedRoute>} />
                   <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/pdfViewer" element={<ProtectedRoute><PdfViewerPage /></ProtectedRoute>} />
                 </Routes>
               </DefaultLayout>
             )}

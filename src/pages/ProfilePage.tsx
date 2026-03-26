@@ -255,14 +255,20 @@ const ProfilePage: React.FC = () => {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       {r.pdf_url ? (
-                        <a
-                          href={r.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate('/pdfViewer', {
+                              state: {
+                                pdfUrl: r.pdf_url!,
+                                title: `Observation report ${r.id.slice(0, 8)}…`,
+                              },
+                            })
+                          }
                           className="text-sm font-medium text-primary hover:underline"
                         >
                           Open PDF
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-xs text-gray-400">No file</span>
                       )}
