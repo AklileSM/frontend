@@ -1,7 +1,43 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { listMyUploads, listReports, type ApiMyUpload, type ApiReport } from '../services/apiClient';
+
+/** Same navigation contract as FileExplorer → StaticViewer / PCD. */
+function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpload): void {
+  const url = u.full_src ?? u.src;
+  if (!url) return;
+
+  if (u.media_type === 'image') {
+    const cap =
+      typeof u.capture_date === 'string' && u.capture_date.length >= 10
+        ? u.capture_date.slice(0, 10)
+        : u.capture_date;
+    navigate('/staticViewer', {
+      state: {
+        imageUrl: url,
+        fileId: u.id,
+        displayFileName: u.file_name,
+        roomLabel: u.room_name,
+        captureDate: cap,
+      },
+    });
+    return;
+  }
+
+  if (u.media_type === 'pointcloud') {
+    navigate('/PCD', { state: { modelUrl: url, fileId: u.id } });
+    return;
+  }
+
+  // Video: StaticViewer is image-only; load the asset in this tab (browser video player). Back returns to the app.
+  if (u.media_type === 'video') {
+    window.location.assign(url);
+    return;
+  }
+
+  window.location.assign(url);
+}
 
 function formatWhen(iso: string): string {
   try {
@@ -34,6 +70,7 @@ function truncate(s: string | null | undefined, max: number): string {
 }
 
 const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const showUploads = useMemo(() => user?.role === 'admin' || user?.role === 'manager', [user?.role]);
 
@@ -312,14 +349,13 @@ const ProfilePage: React.FC = () => {
                         {formatDateOnly(u.capture_date)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        <a
-                          href={u.full_src ?? u.src}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => openUploadedMedia(navigate, u)}
                           className="text-sm font-medium text-primary hover:underline"
                         >
                           View
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))}
