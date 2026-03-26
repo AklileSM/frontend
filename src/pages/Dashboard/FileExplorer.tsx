@@ -17,8 +17,8 @@ import { useAuth } from '../../context/AuthContext';
 
 const FileExplorer: React.FC = () => {
   const { selectedDate } = useSelectedDate();
-  const { isAuthenticated, user } = useAuth();
-  const canUpload = Boolean(user && user.role !== 'viewer');
+  const { user } = useAuth();
+  const canUpload = user?.role === 'admin';
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
@@ -342,20 +342,14 @@ const FileExplorer: React.FC = () => {
           </p>
         </div>
 
-        {selectedDate && (
+        {selectedDate && canUpload && (
           <div className="p-4 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/30">
             <h2 className="text-sm font-semibold text-black dark:text-white mb-3">Upload image</h2>
             <p className="text-xs text-bodydark dark:text-gray-400 mb-3">
               Files are stored for this selected date and the room you pick. They appear under that room in the lists
               below (same as existing captures).
             </p>
-            {!isAuthenticated ? (
-              <p className="text-sm text-amber-600 dark:text-amber-400">Sign in to upload images.</p>
-            ) : !canUpload ? (
-              <p className="text-sm text-bodydark dark:text-gray-400">
-                Viewer accounts cannot upload. Ask an administrator if you need upload access.
-              </p>
-            ) : effectiveRoomOptions.length === 0 ? (
+            {effectiveRoomOptions.length === 0 ? (
               <div className="text-sm text-bodydark dark:text-gray-400 space-y-1">
                 <p>No rooms available yet.</p>
                 {roomsFetchError ? (
