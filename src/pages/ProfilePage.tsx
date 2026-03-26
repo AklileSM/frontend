@@ -97,16 +97,6 @@ const ProfilePage: React.FC = () => {
             <p className="mt-1 capitalize">
               <span className="font-medium text-gray-800 dark:text-gray-200">Role:</span> {user.role}
             </p>
-            {user.role === 'viewer' ? (
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                Viewer accounts see field observation reports only. Uploaded media is listed for administrators and
-                managers.
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                Your published PDF reports and, for admin/manager accounts, media you uploaded to the project.
-              </p>
-            )}
           </div>
         ) : null}
       </div>
@@ -136,8 +126,7 @@ const ProfilePage: React.FC = () => {
       <section className="mb-10">
         <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Field observation reports</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          PDFs you published while signed in (with a linked file from the explorer). Download links are temporary;
-          refresh this page for new links.
+          PDFs you published. Download links are temporary, refresh this page for new links.
         </p>
 
         {loading && !reports ? (
@@ -148,7 +137,7 @@ const ProfilePage: React.FC = () => {
           <div className="rounded-lg border border-stroke bg-gray-50 p-8 text-center dark:border-strokedark dark:bg-gray-800">
             <p className="text-gray-700 dark:text-gray-200">No reports stored for your account yet.</p>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Open an image from the room explorer, publish a report from the viewer, and stay signed in.
+              Open an image from the room explorer andpublish a report from the viewer.
             </p>
             <Link
               to="/A6_stern"
@@ -254,7 +243,7 @@ const ProfilePage: React.FC = () => {
         <section>
           <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Uploaded media</h3>
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Files you uploaded (images, videos, point clouds) recorded under your account.
+            Files you uploaded (images, videos, point clouds).
           </p>
 
           {uploadsError ? (
