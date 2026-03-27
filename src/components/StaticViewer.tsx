@@ -1,8 +1,7 @@
 // StaticViewer.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import imageDescriptions from '../utils/imageDescriptions';
-import { PDFDocument } from 'pdf-lib';
 import { fetchImageDescription } from '../services/imageDescriptionLogic';
 import {
   buildFieldObservationPdf,
@@ -102,6 +101,7 @@ const StaticViewer: React.FC = () => {
         }
         // Display the final description.
         setDisplayedText(formattedDescription);
+        setAutoLabelingText(formattedDescription);
       } catch (error) {
         console.error('Error fetching data:', error);
         setDisplayedText('An error occurred. Please try again.');
@@ -193,58 +193,6 @@ const StaticViewer: React.FC = () => {
   };
 
   const openPublishModal = () => setIsModalOpen(true);
-
-  const savedReports = useRef<
-    { id: number; title: string; createdAt: string; pdfBlob: Blob }[]
-  >([]);
-
-  const publishReports = async () => {
-    if (savedReports.current.length === 0) {
-      alert('No saved reports to publish.');
-      return;
-    }
-  
-    // Create a new PDFDocument for the consolidated report
-    const consolidatedPdf = await PDFDocument.create();
-  
-    for (const report of savedReports.current) {
-      const existingPdfBytes = await report.pdfBlob.arrayBuffer(); // Convert Blob to ArrayBuffer
-      const existingPdf = await PDFDocument.load(existingPdfBytes); // Load the saved PDF into pdf-lib
-  
-      // Copy pages from the existing PDF to the new consolidated PDF
-      const copiedPages = await consolidatedPdf.copyPages(existingPdf, existingPdf.getPageIndices());
-      copiedPages.forEach((page) => consolidatedPdf.addPage(page));
-    }
-  
-    // Save the consolidated PDF and trigger download
-    const consolidatedPdfBytes = await consolidatedPdf.save();
-    const blob = new Blob([new Uint8Array(consolidatedPdfBytes)], { type: 'application/pdf' });
-    if (fileId?.trim()) {
-      try {
-        await createReportWithPdf({
-          pdfBlob: blob,
-          fileId: fileId.trim(),
-          filename: 'Consolidated_Reports.pdf',
-          aiDescription: null,
-          manualObservations: `Consolidated field observation report (${savedReports.current.length} part(s)).`,
-          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
-        });
-      } catch (e) {
-        alert(
-          e instanceof Error
-            ? `${e.message} The PDF was still downloaded.`
-            : 'Could not save the report on the server. The PDF was still downloaded.',
-        );
-      }
-    }
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'Consolidated_Reports.pdf';
-    link.click();
-
-    setIsModalOpen(false);
-  };
-
   const closePublishModal = () => {
     setIsModalOpen(false);
     setIncludeAutoLabeling(false);
@@ -252,7 +200,7 @@ const StaticViewer: React.FC = () => {
     setValidationMessage(null);
   };
 
-  const generatePDFReport = async (action: 'save' | 'publish') => {
+  const generatePDFReport = async () => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -285,29 +233,32 @@ const StaticViewer: React.FC = () => {
       },
     });
     const pdfBlob = doc.output('blob');
-    const newReport = {
-      id: savedReports.current.length + 1, // Unique ID
-      title: `Report ${savedReports.current.length + 1}`, // Title
-      createdAt: new Date().toISOString(), // Timestamp
-      pdfBlob, // PDF Blob
-    };
-
-    // Save the report in memory
-    savedReports.current.push(newReport);
-    console.log('Report saved:', newReport);
-
-    if (action === 'save') {
-      alert('Report saved successfully!');
-    } else if (action === 'publish') {
-      await publishReports();
+    if (fileId?.trim()) {
+      try {
+        await createReportWithPdf({
+          pdfBlob,
+          fileId: fileId.trim(),
+          filename: `FieldObservation_${ref}.pdf`,
+          aiDescription: includeAutoLabeling ? (autoLabelingText || displayedText || null) : null,
+          manualObservations: includeAdditionalComments ? (additionalCommentsText || null) : null,
+          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+        });
+      } catch (e) {
+        alert(
+          e instanceof Error
+            ? `${e.message} The PDF was still downloaded.`
+            : 'Could not save the report on the server. The PDF was still downloaded.',
+        );
+      }
     }
+    doc.save(`FieldObservation_${ref}.pdf`);
   };
 
   const handleModalPublish = async () => {
     if (!includeAutoLabeling && !includeAdditionalComments) {
       setValidationMessage('Please select at least one option to include in the report.');
     } else {
-      await generatePDFReport('publish');
+      await generatePDFReport();
       closePublishModal();
     }
   };
