@@ -1,34 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import Calendar from '../../pages/Calendar';
-import { useNavigate } from 'react-router-dom';
-import { getHDImagePath } from '../../utils/pathutils'
 import FileTree from '../FileTree';
-
-
-// Define a type for the file structure
-type MediaFiles = {
-  images?: string[];
-  videos?: string[];
-  pointclouds?: string[];
-};
-
-// Type for the file tree data, allowing string keys
-const fileTreeData: Record<string, MediaFiles> = {
-  "2024-10-07": {
-    images: ["room02.jpg", "room03.jpg"],
-    pointclouds: ["Room 2.glb", "Room 3.glb"]
-  },
-  "2024-10-09": {
-    images: ["room02.jpg", "room03.jpg", "room04.jpg", "room05.jpg", "room06.jpg"],
-    pointclouds: ["Room 2.glb"]
-  },
-  "2024-10-11": {
-    images: ["room02.jpg", "room03.jpg", "room04.jpg", "room06.jpg"],
-    pointclouds: ["room02.e57"]
-  }
-};
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -37,15 +11,6 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
-  const [fileTreeOpen, setFileTreeOpen] = useState<{ [key: string]: boolean }>({});
-  const navigate = useNavigate();
-
-  const toggleDateNode = (date: string) => {
-    setFileTreeOpen((prev) => ({
-      ...prev,
-      [date]: !prev[date]
-    }));
-  };
 
   return (
     <div
