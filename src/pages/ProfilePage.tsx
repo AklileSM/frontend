@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { AuthUser } from '../auth/authSession';
@@ -108,6 +109,76 @@ function canDeleteFiles(authUser: AuthUser | null): boolean {
   return Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
 }
 
+const PROFILE_MENU_PANEL_CLASS =
+  'min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-lg dark:border-strokedark dark:bg-boxdark';
+
+/** Renders the dropdown in `document.body` so it is not clipped by table `overflow` ancestors. */
+function ProfilePortalMenu({
+  open,
+  onClose,
+  anchorRef,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  children: React.ReactNode;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const updatePosition = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setCoords({ top: rect.bottom + 4, left: rect.right });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const onScrollOrResize = () => updatePosition();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (anchorRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open, onClose, anchorRef]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      role="menu"
+      className={PROFILE_MENU_PANEL_CLASS}
+      style={{
+        position: 'fixed',
+        top: coords.top,
+        left: coords.left,
+        transform: 'translateX(-100%)',
+        zIndex: 10050,
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 function ReportActionsMenu({
   report,
   onOpenPdf,
@@ -122,22 +193,12 @@ function ReportActionsMenu({
   busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  const anchorRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div ref={rootRef} className="relative flex justify-end">
+    <div className="flex justify-end">
       <button
+        ref={anchorRef}
         type="button"
         disabled={busy}
         aria-label="Report actions"
@@ -165,49 +226,44 @@ function ReportActionsMenu({
           />
         </svg>
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-lg dark:border-strokedark dark:bg-boxdark"
+      <ProfilePortalMenu open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!report.pdf_url || busy}
+          onClick={() => {
+            if (report.pdf_url) onOpenPdf();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
         >
-          <button
-            type="button"
-            role="menuitem"
-            disabled={!report.pdf_url || busy}
-            onClick={() => {
-              if (report.pdf_url) onOpenPdf();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-          >
-            Open PDF
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={!report.pdf_url || busy}
-            onClick={() => {
-              if (report.pdf_url) onDownload();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-          >
-            Download
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={busy}
-            onClick={() => {
-              onRequestDelete();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
-          >
-            Delete
-          </button>
-        </div>
-      ) : null}
+          Open PDF
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!report.pdf_url || busy}
+          onClick={() => {
+            if (report.pdf_url) onDownload();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+        >
+          Download
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onRequestDelete();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+        >
+          Delete
+        </button>
+      </ProfilePortalMenu>
     </div>
   );
 }
@@ -215,34 +271,22 @@ function ReportActionsMenu({
 function UploadActionsMenu({
   upload,
   onView,
-  onDownload,
   onRequestDelete,
   busy,
 }: {
   upload: ApiMyUpload;
   onView: () => void;
-  onDownload: () => void;
   onRequestDelete: () => void;
   busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement>(null);
   const url = upload.full_src ?? upload.src;
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
   return (
-    <div ref={rootRef} className="relative flex justify-end">
+    <div className="flex justify-end">
       <button
+        ref={anchorRef}
         type="button"
         disabled={busy}
         aria-label="Upload actions"
@@ -270,49 +314,32 @@ function UploadActionsMenu({
           />
         </svg>
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-lg dark:border-strokedark dark:bg-boxdark"
+      <ProfilePortalMenu open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!url || busy}
+          onClick={() => {
+            onView();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
         >
-          <button
-            type="button"
-            role="menuitem"
-            disabled={!url || busy}
-            onClick={() => {
-              onView();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-          >
-            View
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={!url || busy}
-            onClick={() => {
-              onDownload();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-          >
-            Download
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={busy}
-            onClick={() => {
-              onRequestDelete();
-              setOpen(false);
-            }}
-            className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
-          >
-            Delete
-          </button>
-        </div>
-      ) : null}
+          View
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onRequestDelete();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+        >
+          Delete
+        </button>
+      </ProfilePortalMenu>
     </div>
   );
 }
@@ -661,10 +688,6 @@ const ProfilePage: React.FC = () => {
                           upload={u}
                           busy={deletingUploadId === u.id}
                           onView={() => openUploadedMedia(navigate, u)}
-                          onDownload={() => {
-                            const href = u.full_src ?? u.src;
-                            if (href) void triggerFileDownload(href, u.file_name);
-                          }}
                           onRequestDelete={() => {
                             if (!canDeleteFiles(user)) return;
                             setUploadDeleteModalError(null);
