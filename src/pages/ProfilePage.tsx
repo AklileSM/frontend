@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -125,26 +125,62 @@ function ProfilePortalMenu({
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [placement, setPlacement] = useState<{
+    top: number;
+    left: number;
+    maxHeight?: number;
+  }>({ top: 0, left: 0 });
 
-  const updatePosition = useCallback(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setCoords({ top: rect.bottom + 4, left: rect.right });
+  const clampIntoViewport = useCallback(() => {
+    const anchor = anchorRef.current;
+    const panel = panelRef.current;
+    if (!anchor || !panel) return;
+
+    const margin = 8;
+    const gap = 4;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const a = anchor.getBoundingClientRect();
+    const m = panel.getBoundingClientRect();
+    const w = m.width;
+    const h = m.height;
+
+    let left = a.right - w;
+    if (left < margin) left = margin;
+    if (left + w > vw - margin) left = Math.max(margin, vw - margin - w);
+
+    let top = a.bottom + gap;
+    if (top + h > vh - margin) {
+      const aboveTop = a.top - h - gap;
+      if (aboveTop >= margin) {
+        top = aboveTop;
+      }
+    }
+    if (top < margin) top = margin;
+
+    let maxHeight: number | undefined;
+    if (top + h > vh - margin) {
+      maxHeight = Math.max(80, vh - margin - top);
+    }
+
+    setPlacement({ top, left, maxHeight });
   }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    clampIntoViewport();
+  }, [open, clampIntoViewport]);
 
   useEffect(() => {
     if (!open) return;
-    updatePosition();
-    const onScrollOrResize = () => updatePosition();
+    const onScrollOrResize = () => clampIntoViewport();
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
     return () => {
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize);
     };
-  }, [open, updatePosition]);
+  }, [open, clampIntoViewport]);
 
   useEffect(() => {
     if (!open) return;
@@ -167,10 +203,11 @@ function ProfilePortalMenu({
       className={PROFILE_MENU_PANEL_CLASS}
       style={{
         position: 'fixed',
-        top: coords.top,
-        left: coords.left,
-        transform: 'translateX(-100%)',
+        top: placement.top,
+        left: placement.left,
         zIndex: 10050,
+        maxHeight: placement.maxHeight,
+        overflowY: placement.maxHeight ? 'auto' : undefined,
       }}
     >
       {children}
