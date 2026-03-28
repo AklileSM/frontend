@@ -31,7 +31,7 @@ async function apiFetch(path: string, init?: RequestInit, withAuth = true): Prom
 export interface ApiMediaFile {
   id: string;
   src: string;
-  type: 'image' | 'video' | 'pointcloud';
+  type: 'image' | 'video' | 'pointcloud' | 'pdf';
   file_name: string;
   full_src?: string | null;
   capture_date: string;
@@ -43,6 +43,7 @@ export interface ApiRoomMediaGroup {
   images: ApiMediaFile[];
   videos: ApiMediaFile[];
   pointclouds: ApiMediaFile[];
+  pdfs: ApiMediaFile[];
 }
 
 export interface ExplorerByDateResponse {
@@ -60,6 +61,7 @@ export interface DateMediaCounts {
   images: number;
   videos: number;
   pointclouds: number;
+  pdfs: number;
 }
 
 export interface ExplorerDatesSummaryResponse {
@@ -78,10 +80,11 @@ function addRoomGroupsToDateCounts(
   dates: Record<string, ApiRoomMediaGroup>,
 ): void {
   for (const [day, group] of Object.entries(dates)) {
-    const cur = acc[day] ?? { images: 0, videos: 0, pointclouds: 0 };
+    const cur = acc[day] ?? { images: 0, videos: 0, pointclouds: 0, pdfs: 0 };
     cur.images += group.images?.length ?? 0;
     cur.videos += group.videos?.length ?? 0;
     cur.pointclouds += group.pointclouds?.length ?? 0;
+    cur.pdfs += group.pdfs?.length ?? 0;
     acc[day] = cur;
   }
 }
@@ -218,7 +221,7 @@ export type UploadSingleResponse = {
 export async function uploadSingleFile(params: {
   file: File;
   roomSlug: string;
-  mediaType: 'image' | 'video' | 'pointcloud';
+  mediaType: 'image' | 'video' | 'pointcloud' | 'pdf';
   captureDate: string;
 }): Promise<UploadSingleResponse> {
   const token = getAccessToken();

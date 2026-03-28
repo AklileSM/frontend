@@ -10,7 +10,7 @@ interface RoomFileViewerProps {
 }
 
 const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
-  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
+  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedDates, setCollapsedDates] = useState<{ [date: string]: boolean }>({});
   const [roomData, setRoomData] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [roomName, setRoomName] = useState<string>('');
@@ -68,6 +68,10 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
     .flatMap(dateData => dateData.pointclouds || [])
     .length;
 
+  const totalPdfCount = Object.values(roomData)
+    .flatMap(dateData => dateData.pdfs || [])
+    .length;
+
   useEffect(() => {
     const initialCollapsedDates: { [date: string]: boolean } = {};
     Object.keys(roomData).forEach((date) => {
@@ -75,7 +79,7 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
       initialCollapsedDates[date] = !hasFiles;
     });
     setCollapsedDates(initialCollapsedDates);
-  }, [roomData]);
+  }, [roomData, activeTab]);
 
   const toggleCollapse = (date: string) => {
     setCollapsedDates((prevState) => ({
@@ -106,6 +110,15 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
               });
             } else if (thumbnail.type === 'pointcloud') {
               navigate('/PCD', { state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id } });
+            } else if (thumbnail.type === 'pdf') {
+              navigate('/pdfViewer', {
+                state: {
+                  pdfUrl: thumbnail.full_src || thumbnail.src,
+                  title: thumbnail.file_name,
+                },
+              });
+            } else if (thumbnail.type === 'video') {
+              window.open(thumbnail.full_src || thumbnail.src, '_blank', 'noopener,noreferrer');
             }
           }}
         >
@@ -185,10 +198,11 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
             {`${roomName || room.charAt(0).toUpperCase()}${roomName ? '' : room.slice(1).replace(/([a-zA-Z]+)(\d+)/, '$1 $2')} Files`}
           </h1>
   
-          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex space-x-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex flex-wrap gap-x-1">
             <p>Images ({totalImageCount}),</p>
             <p>Videos ({totalVideoCount}),</p>
-            <p>Pointcloud Data ({totalPointcloudCount})</p>
+            <p>Pointcloud Data ({totalPointcloudCount}),</p>
+            <p>PDFs ({totalPdfCount})</p>
           </div>
         </div>
   
@@ -210,6 +224,12 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
             onClick={() => setActiveTab('pointclouds')}
           >
             Pointcloud Data
+          </button>
+          <button
+            className={`flex-1 px-4 py-2 text-sm font-medium ${activeTab === 'pdfs' ? 'border-b-2 border-primary text-primary dark:text-white' : 'text-bodydark1 dark:text-gray-300 hover:text-primary'}`}
+            onClick={() => setActiveTab('pdfs')}
+          >
+            PDFs
           </button>
         </div>
   

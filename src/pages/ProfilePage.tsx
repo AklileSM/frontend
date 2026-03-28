@@ -39,6 +39,11 @@ function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpl
     return;
   }
 
+  if (u.media_type === 'pdf') {
+    navigate('/pdfViewer', { state: { pdfUrl: url, title: u.file_name } });
+    return;
+  }
+
   // Video: StaticViewer is image-only; load the asset in this tab (browser video player). Back returns to the app.
   if (u.media_type === 'video') {
     window.location.assign(url);
@@ -652,7 +657,7 @@ const ProfilePage: React.FC = () => {
         <section>
           <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Uploaded media</h3>
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Files you uploaded (images, videos, point clouds).
+            Files you uploaded (images, videos, point clouds, PDFs).
           </p>
 
           {uploadsError ? (

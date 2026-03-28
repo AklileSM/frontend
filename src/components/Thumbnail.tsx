@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 
 interface ThumbnailProps {
   src: string;
-  type: 'image' | 'video' | 'pointcloud';
+  type: 'image' | 'video' | 'pointcloud' | 'pdf';
   altText?: string;
 }
 
@@ -56,6 +56,15 @@ const Thumbnail: React.FC<ThumbnailProps> = ({ src, type, altText }) => {
         return (
           <div className="w-full h-48 flex items-center justify-center rounded-lg">
             <img src="/Images/thumbnails/svg/pointcloudIcon.svg" alt="Pointcloud icon" className="w-35 h-35 rounded-lg" />
+          </div>
+        );
+      case 'pdf':
+        return (
+          <div className="w-full h-48 flex flex-col items-center justify-center rounded-md border border-stroke bg-gray-100 dark:border-strokedark dark:bg-gray-800">
+            <svg className="h-14 w-14 text-red-600 dark:text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2zm0-8h3v2H8v-2z" />
+            </svg>
+            <span className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">PDF</span>
           </div>
         );
       default:

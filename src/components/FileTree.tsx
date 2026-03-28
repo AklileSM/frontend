@@ -10,7 +10,7 @@ type RoomTreeEntry = {
   dates: Record<string, ApiRoomMediaGroup>;
 };
 
-const MEDIA_KEYS: (keyof ApiRoomMediaGroup)[] = ['images', 'videos', 'pointclouds'];
+const MEDIA_KEYS: (keyof ApiRoomMediaGroup)[] = ['images', 'videos', 'pointclouds', 'pdfs'];
 
 function openMedia(
   navigate: ReturnType<typeof useNavigate>,
@@ -34,6 +34,8 @@ function openMedia(
     });
   } else if (file.type === 'video') {
     window.open(url, '_blank', 'noopener,noreferrer');
+  } else if (file.type === 'pdf') {
+    navigate('/pdfViewer', { state: { pdfUrl: url, title: file.file_name } });
   }
 }
 
@@ -215,7 +217,9 @@ const FileTree: React.FC = () => {
                                     const typeLabel =
                                       typeKey === 'pointclouds'
                                         ? 'Pointclouds'
-                                        : typeKey.charAt(0).toUpperCase() + typeKey.slice(1);
+                                        : typeKey === 'pdfs'
+                                          ? 'PDFs'
+                                          : typeKey.charAt(0).toUpperCase() + typeKey.slice(1);
 
                                     return (
                                       <div key={typeNodeKey} className="mt-3">
@@ -269,6 +273,8 @@ const FileTree: React.FC = () => {
                                                     <path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2zm-9-8l3.5 4.5H8l2.5-3z" />
                                                   ) : file.type === 'video' ? (
                                                     <path d="M8 5v14l11-7L8 5zm2 3.5L15.5 12 10 15.5V8.5z" />
+                                                  ) : file.type === 'pdf' ? (
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
                                                   ) : (
                                                     <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm2-6h-4v-4h4zm-2 2a6.61 6.61 0 0 0 3.66-1.18l1.07 1.07A7.93 7.93 0 0 1 12 20a7.93 7.93 0 0 1-4.73-1.61l1.07-1.07A6.61 6.61 0 0 0 12 16z" />
                                                   )}

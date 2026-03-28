@@ -6,7 +6,12 @@ import { useCaptureDatesSummary } from '../hooks/useCaptureDatesSummary';
 const HomeCalendar: React.FC = () => {
   const { setSelectedDate } = useSelectedDate();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [hoveredDateData, setHoveredDateData] = useState<{ images: number; videos: number; pointclouds: number } | null>(null);
+  const [hoveredDateData, setHoveredDateData] = useState<{
+    images: number;
+    videos: number;
+    pointclouds: number;
+    pdfs: number;
+  } | null>(null);
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
   const { dataByDate, loading, error } = useCaptureDatesSummary();
 
@@ -159,6 +164,7 @@ const HomeCalendar: React.FC = () => {
                           <p>Images: {hoveredDateData.images}</p>
                           <p>Videos: {hoveredDateData.videos}</p>
                           <p>Point Clouds: {hoveredDateData.pointclouds}</p>
+                          <p>PDFs: {hoveredDateData.pdfs ?? 0}</p>
                         </div>
                       )}
                     </td>

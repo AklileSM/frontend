@@ -14,6 +14,7 @@ export type CompareExplorerFileSelection = {
   roomLabel: string;
   captureDate: string;
   fileId?: string;
+  mediaType?: ApiMediaFile['type'];
 };
 
 interface CompareFileExplorerProps {
@@ -35,7 +36,7 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
   className,
   onBackToCalendar,
 }) => {
-  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
+  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,7 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
                 roomLabel: roomDisplayName,
                 captureDate: thumbnail.capture_date,
                 fileId: thumbnail.id,
+                mediaType: thumbnail.type,
               });
             }
           }}
@@ -218,6 +220,12 @@ const CompareFileExplorer: React.FC<CompareFileExplorerProps> = ({
           onClick={() => setActiveTab('pointclouds')}
         >
           Pointcloud Data
+        </button>
+        <button
+          className={`flex-1 px-4 py-2 text-sm font-medium ${activeTab === 'pdfs' ? 'border-b-2 border-primary text-primary dark:text-white' : 'text-bodydark1 dark:text-gray-300 hover:text-primary'}`}
+          onClick={() => setActiveTab('pdfs')}
+        >
+          PDFs
         </button>
       </div>
 

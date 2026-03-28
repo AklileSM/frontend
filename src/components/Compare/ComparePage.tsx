@@ -250,6 +250,11 @@ const ComparePage: React.FC = () => {
   const handleLeftThumbnailClick = (sel: CompareExplorerFileSelection) => {
     const { fileUrl } = sel;
 
+    if (sel.mediaType === 'pdf') {
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     if (fileUrl === rightSelectedFile) {
       alert('This file is already selected for the right view!');
       return;
@@ -290,6 +295,11 @@ const ComparePage: React.FC = () => {
 
   const handleRightThumbnailClick = (sel: CompareExplorerFileSelection) => {
     const { fileUrl } = sel;
+
+    if (sel.mediaType === 'pdf') {
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
 
     if (fileUrl === leftSelectedFile) {
       alert('This file is already selected for the left view!');

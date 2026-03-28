@@ -19,7 +19,7 @@ const FileExplorer: React.FC = () => {
   const { selectedDate } = useSelectedDate();
   const { user } = useAuth();
   const canUpload = user?.role === 'admin';
-  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds'>('images');
+  const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [loading, setLoading] = useState(false);
@@ -38,6 +38,12 @@ const FileExplorer: React.FC = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filePendingDelete, setFilePendingDelete] = useState<ApiMediaFile | null>(null);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'images' && activeTab !== 'pdfs') return;
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,17 +139,19 @@ const FileExplorer: React.FC = () => {
     let imageCount = 0;
     let videoCount = 0;
     let pointcloudCount = 0;
+    let pdfCount = 0;
 
     Object.values(thumbnailsForSelectedDate).forEach((room) => {
       imageCount += room.images.length;
       videoCount += room.videos.length;
       pointcloudCount += room.pointclouds.length;
+      pdfCount += room.pdfs?.length ?? 0;
     });
 
-    return { imageCount, videoCount, pointcloudCount };
+    return { imageCount, videoCount, pointcloudCount, pdfCount };
   };
 
-  const { imageCount, videoCount, pointcloudCount } = calculateFileCounts();
+  const { imageCount, videoCount, pointcloudCount, pdfCount } = calculateFileCounts();
 
   useEffect(() => {
     const initialCollapsedRooms: { [room: string]: boolean } = {};
@@ -189,6 +197,8 @@ const FileExplorer: React.FC = () => {
 
   const handleUpload = async () => {
     if (!selectedDate || !file || !roomSlug) return;
+    if (activeTab !== 'images' && activeTab !== 'pdfs') return;
+    const mediaType = activeTab === 'pdfs' ? 'pdf' : 'image';
     setUploadError(null);
     setUploadOk(null);
     setUploading(true);
@@ -196,13 +206,13 @@ const FileExplorer: React.FC = () => {
       await uploadSingleFile({
         file,
         roomSlug,
-        mediaType: 'image',
+        mediaType,
         captureDate: selectedDate,
       });
       setUploadOk(`Uploaded “${file.name}”.`);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setActiveTab('images');
+      setActiveTab(activeTab === 'pdfs' ? 'pdfs' : 'images');
       reloadExplorer();
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed');
@@ -238,6 +248,15 @@ const FileExplorer: React.FC = () => {
                   navigate('/PCD', {
                     state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id },
                   });
+                } else if (thumbnail.type === 'pdf') {
+                  navigate('/pdfViewer', {
+                    state: {
+                      pdfUrl: thumbnail.full_src || thumbnail.src,
+                      title: thumbnail.file_name,
+                    },
+                  });
+                } else if (thumbnail.type === 'video') {
+                  window.open(thumbnail.full_src || thumbnail.src, '_blank', 'noopener,noreferrer');
                 }
               }}
             >
@@ -338,13 +357,15 @@ const FileExplorer: React.FC = () => {
             Selected Date: <span className="font-semibold">{selectedDate || 'None'}</span>
           </h1>
           <p className="text-sm text-black dark:text-gray-400 mt-2">
-            Images ({imageCount}), Videos ({videoCount}), Pointcloud data ({pointcloudCount})
+            Images ({imageCount}), Videos ({videoCount}), Pointcloud data ({pointcloudCount}), PDFs ({pdfCount})
           </p>
         </div>
 
-        {selectedDate && canUpload && (
+        {selectedDate && canUpload && (activeTab === 'images' || activeTab === 'pdfs') && (
           <div className="p-4 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/30">
-            <h2 className="text-sm font-semibold text-black dark:text-white mb-3">Upload image</h2>
+            <h2 className="text-sm font-semibold text-black dark:text-white mb-3">
+              {activeTab === 'pdfs' ? 'Upload PDF' : 'Upload image'}
+            </h2>
             <p className="text-xs text-bodydark dark:text-gray-400 mb-3">
               Files are stored for this selected date and the room you pick. They appear under that room in the lists
               below (same as existing captures).
@@ -383,11 +404,13 @@ const FileExplorer: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Image file</label>
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                    {activeTab === 'pdfs' ? 'PDF file' : 'Image file'}
+                  </label>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept={activeTab === 'pdfs' ? 'application/pdf,.pdf' : 'image/*'}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     className="text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
                   />
@@ -425,6 +448,12 @@ const FileExplorer: React.FC = () => {
             onClick={() => setActiveTab('pointclouds')}
           >
             Pointcloud Data
+          </button>
+          <button
+            className={`flex-1 px-4 py-2 text-sm font-medium ${activeTab === 'pdfs' ? 'border-b-2 border-primary text-primary dark:text-white' : 'text-bodydark1 dark:text-gray-300 hover:text-primary'}`}
+            onClick={() => setActiveTab('pdfs')}
+          >
+            PDFs
           </button>
         </div>
 
