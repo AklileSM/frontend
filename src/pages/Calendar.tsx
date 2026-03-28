@@ -47,6 +47,13 @@ const Calendar: React.FC = () => {
 
   const yearsRange = Array.from({ length: 21 }, (_, i) => currentDate.getFullYear() - 10 + i);
 
+  const CALENDAR_CELLS = 6 * 7;
+  const rawDays = generateCalendarDays();
+  const calendarCells: (number | null)[] = [...rawDays];
+  for (let i = rawDays.length; i < CALENDAR_CELLS; i++) {
+    calendarCells.push(null);
+  }
+
   return (
     <div className="relative">
       {error && (
@@ -93,9 +100,9 @@ const Calendar: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: Math.ceil(generateCalendarDays().length / 7) }).map((_, rowIndex) => (
+            {Array.from({ length: 6 }).map((_, rowIndex) => (
               <tr key={rowIndex} className="grid grid-cols-7">
-                {generateCalendarDays()
+                {calendarCells
                   .slice(rowIndex * 7, rowIndex * 7 + 7)
                   .map((day, index) => {
                     const formattedDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
