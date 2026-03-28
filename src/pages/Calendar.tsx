@@ -100,11 +100,17 @@ const Calendar: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 6 }).map((_, rowIndex) => (
-              <tr key={rowIndex} className="grid grid-cols-7">
-                {calendarCells
-                  .slice(rowIndex * 7, rowIndex * 7 + 7)
-                  .map((day, index) => {
+            {Array.from({ length: 6 }).map((_, rowIndex) => {
+              const rowDays = calendarCells.slice(rowIndex * 7, rowIndex * 7 + 7);
+              const isTrailingEmptyRow = rowDays.every((d) => d === null);
+
+              return (
+              <tr
+                key={rowIndex}
+                className={`grid grid-cols-7 ${isTrailingEmptyRow ? 'invisible' : ''}`}
+                aria-hidden={isTrailingEmptyRow}
+              >
+                {rowDays.map((day, index) => {
                     const formattedDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const hasData = dataByDate.hasOwnProperty(formattedDate);
 
@@ -121,7 +127,8 @@ const Calendar: React.FC = () => {
                     );
                   })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
