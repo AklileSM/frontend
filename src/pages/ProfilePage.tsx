@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import type { AuthUser } from '../auth/authSession';
 import {
+  deleteFileAsset,
   deleteReport,
   listMyUploads,
   listReports,
@@ -75,15 +77,48 @@ function truncate(s: string | null | undefined, max: number): string {
   return `${t.slice(0, max)}…`;
 }
 
+function safeDownloadBasename(name: string): string {
+  const base = name.replace(/^.*[/\\]/, '').replace(/[/\\?*:|"<>]/g, '_') || 'download';
+  return base;
+}
+
+async function triggerFileDownload(url: string, filename: string): Promise<void> {
+  const basename = safeDownloadBasename(filename);
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = basename;
+    a.click();
+    URL.revokeObjectURL(href);
+  } catch {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = basename;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.click();
+  }
+}
+
+function canDeleteFiles(authUser: AuthUser | null): boolean {
+  return Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
+}
+
 function ReportActionsMenu({
   report,
   onOpenPdf,
-  onDelete,
+  onDownload,
+  onRequestDelete,
   busy,
 }: {
   report: ApiReport;
   onOpenPdf: () => void;
-  onDelete: () => void;
+  onDownload: () => void;
+  onRequestDelete: () => void;
   busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -150,9 +185,126 @@ function ReportActionsMenu({
           <button
             type="button"
             role="menuitem"
+            disabled={!report.pdf_url || busy}
+            onClick={() => {
+              if (report.pdf_url) onDownload();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+          >
+            Download
+          </button>
+          <button
+            type="button"
+            role="menuitem"
             disabled={busy}
             onClick={() => {
-              onDelete();
+              onRequestDelete();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function UploadActionsMenu({
+  upload,
+  onView,
+  onDownload,
+  onRequestDelete,
+  busy,
+}: {
+  upload: ApiMyUpload;
+  onView: () => void;
+  onDownload: () => void;
+  onRequestDelete: () => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const url = upload.full_src ?? upload.src;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative flex justify-end">
+      <button
+        type="button"
+        disabled={busy}
+        aria-label="Upload actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="rounded p-1.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-meta-4 disabled:opacity-50"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="h-5 w-5"
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"
+          />
+        </svg>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-lg dark:border-strokedark dark:bg-boxdark"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!url || busy}
+            onClick={() => {
+              onView();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+          >
+            View
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!url || busy}
+            onClick={() => {
+              onDownload();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+          >
+            Download
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => {
+              onRequestDelete();
               setOpen(false);
             }}
             className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
@@ -176,6 +328,11 @@ const ProfilePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploadsError, setUploadsError] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [reportPendingDelete, setReportPendingDelete] = useState<ApiReport | null>(null);
+  const [reportDeleteModalError, setReportDeleteModalError] = useState<string | null>(null);
+  const [uploadPendingDelete, setUploadPendingDelete] = useState<ApiMyUpload | null>(null);
+  const [uploadDeleteModalError, setUploadDeleteModalError] = useState<string | null>(null);
+  const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -213,16 +370,47 @@ const ProfilePage: React.FC = () => {
     void load();
   }, [load]);
 
-  const handleDeleteReport = async (id: string) => {
-    if (!window.confirm('Delete this report? This cannot be undone.')) return;
-    setDeletingReportId(id);
+  const closeReportDeleteModal = () => {
+    if (deletingReportId) return;
+    setReportPendingDelete(null);
+    setReportDeleteModalError(null);
+  };
+
+  const confirmDeleteReport = async () => {
+    const r = reportPendingDelete;
+    if (!r) return;
+    setReportDeleteModalError(null);
+    setDeletingReportId(r.id);
     try {
-      await deleteReport(id);
-      setReports((prev) => (prev ? prev.filter((r) => r.id !== id) : null));
+      await deleteReport(r.id);
+      setReportPendingDelete(null);
+      setReports((prev) => (prev ? prev.filter((x) => x.id !== r.id) : null));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not delete report.');
+      setReportDeleteModalError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
       setDeletingReportId(null);
+    }
+  };
+
+  const closeUploadDeleteModal = () => {
+    if (deletingUploadId) return;
+    setUploadPendingDelete(null);
+    setUploadDeleteModalError(null);
+  };
+
+  const confirmDeleteUpload = async () => {
+    const u = uploadPendingDelete;
+    if (!u || !canDeleteFiles(user)) return;
+    setUploadDeleteModalError(null);
+    setDeletingUploadId(u.id);
+    try {
+      await deleteFileAsset(u.id);
+      setUploadPendingDelete(null);
+      setUploads((prev) => (prev ? prev.filter((x) => x.id !== u.id) : null));
+    } catch (e) {
+      setUploadDeleteModalError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeletingUploadId(null);
     }
   };
 
@@ -375,7 +563,16 @@ const ProfilePage: React.FC = () => {
                             },
                           })
                         }
-                        onDelete={() => void handleDeleteReport(r.id)}
+                        onDownload={() =>
+                          void triggerFileDownload(
+                            r.pdf_url!,
+                            `observation-report-${r.id.slice(0, 8)}.pdf`,
+                          )
+                        }
+                        onRequestDelete={() => {
+                          setReportDeleteModalError(null);
+                          setReportPendingDelete(r);
+                        }}
                       />
                     </td>
                   </tr>
@@ -436,8 +633,8 @@ const ProfilePage: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
                       Capture date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
-                      Open
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -460,13 +657,20 @@ const ProfilePage: React.FC = () => {
                         {formatDateOnly(u.capture_date)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => openUploadedMedia(navigate, u)}
-                          className="text-sm font-medium text-primary hover:underline"
-                        >
-                          View
-                        </button>
+                        <UploadActionsMenu
+                          upload={u}
+                          busy={deletingUploadId === u.id}
+                          onView={() => openUploadedMedia(navigate, u)}
+                          onDownload={() => {
+                            const href = u.full_src ?? u.src;
+                            if (href) void triggerFileDownload(href, u.file_name);
+                          }}
+                          onRequestDelete={() => {
+                            if (!canDeleteFiles(user)) return;
+                            setUploadDeleteModalError(null);
+                            setUploadPendingDelete(u);
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -475,6 +679,92 @@ const ProfilePage: React.FC = () => {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {reportPendingDelete ? (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-report-delete-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2
+              id="profile-report-delete-title"
+              className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200"
+            >
+              Delete report
+            </h2>
+            <p className="mb-6 text-lg text-gray-900 dark:text-gray-200">
+              Delete observation report{' '}
+              <span className="font-mono">{reportPendingDelete.id.slice(0, 8)}…</span>? This cannot be
+              undone.
+            </p>
+            {reportDeleteModalError ? (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400">{reportDeleteModalError}</p>
+            ) : null}
+            <div className="mt-4 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={closeReportDeleteModal}
+                disabled={!!deletingReportId}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteReport()}
+                disabled={!!deletingReportId}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white shadow-md hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingReportId ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {uploadPendingDelete && canDeleteFiles(user) ? (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-upload-delete-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2
+              id="profile-upload-delete-title"
+              className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200"
+            >
+              Delete file
+            </h2>
+            <p className="mb-6 text-lg text-gray-900 dark:text-gray-200">
+              Delete &quot;{uploadPendingDelete.file_name}&quot;? This cannot be undone.
+            </p>
+            {uploadDeleteModalError ? (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400">{uploadDeleteModalError}</p>
+            ) : null}
+            <div className="mt-4 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={closeUploadDeleteModal}
+                disabled={!!deletingUploadId}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteUpload()}
+                disabled={!!deletingUploadId}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white shadow-md hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingUploadId ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
