@@ -13,6 +13,10 @@ interface SidebarProps {
 const WIDTH_TRANSITION =
   'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none';
 
+/** Logo uses negative margin to tuck under the toggle; avoid `overflow-hidden` on ancestors so it stays visible (original layout). */
+const CONTENT_TRANSITION =
+  'transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transform-none motion-reduce:transition-none';
+
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
   const [heavyContentMounted, setHeavyContentMounted] = useState(false);
@@ -23,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-800 text-white shadow-lg shadow-black/15 ${WIDTH_TRANSITION} ${
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-x-hidden bg-gray-800 text-white shadow-lg shadow-black/15 ${WIDTH_TRANSITION} ${
         sidebarOpen ? 'w-64' : 'w-16'
       }`}
       aria-label="Main navigation"
@@ -63,25 +67,33 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         </button>
       </div>
 
-      {/* Full-width panel (clipped when collapsed); fade + slide instead of mount/unmount */}
+      {/* Logo: same position as before (below toggle, pulled up with -mt-14). Fades with the panel, not clipped. */}
       <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-[opacity,transform] motion-reduce:transform-none motion-reduce:transition-none ${
+        className={`ml-4 hidden shrink-0 transition-[max-height,opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:block ${
           sidebarOpen
-            ? 'translate-x-0 opacity-100 delay-75 duration-200 ease-out motion-reduce:delay-0'
-            : '-translate-x-2 opacity-0 duration-150 ease-in motion-reduce:duration-0'
+            ? 'max-h-40 translate-x-0 overflow-visible opacity-100 delay-75 motion-reduce:delay-0'
+            : 'max-h-0 -translate-x-2 overflow-hidden opacity-0 pointer-events-none'
+        }`}
+        aria-hidden={!sidebarOpen}
+      >
+        <img
+          className="w-30 -mt-14 ml-1"
+          src="Logo/LogoforDark.png"
+          alt="Logo for light mode"
+        />
+      </div>
+
+      {/* Nav + tree + calendar: clipped horizontally when rail is narrow; smooth fade/slide with width */}
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${CONTENT_TRANSITION} ${
+          sidebarOpen
+            ? 'translate-x-0 opacity-100 delay-100 motion-reduce:delay-0'
+            : 'pointer-events-none -translate-x-2 opacity-0'
         }`}
         style={{ pointerEvents: sidebarOpen ? 'auto' : 'none' }}
         aria-hidden={!sidebarOpen}
       >
-        <div className="min-w-[16rem] flex min-h-0 flex-1 flex-col">
-          <div className="ml-4 hidden shrink-0 sm:block">
-            <img
-              className="w-30 -mt-14 ml-1"
-              src="Logo/LogoforDark.png"
-              alt="Logo for light mode"
-            />
-          </div>
-
+        <div className="flex min-h-0 min-w-[16rem] flex-1 flex-col">
           <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
             <ul className="mb-6 flex flex-col gap-1.5">
               <SidebarLinkGroup
