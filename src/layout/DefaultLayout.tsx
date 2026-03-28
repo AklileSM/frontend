@@ -16,7 +16,7 @@ const DefaultLayout: React.FC<{ children: ReactNode; title?: string }> = ({ chil
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <div
-          className={`relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ${
+          className={`relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-[margin-left] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             sidebarOpen ? "ml-64" : "ml-16"
           }`}
         >
