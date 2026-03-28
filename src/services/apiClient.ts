@@ -270,6 +270,13 @@ export function listReports(): Promise<ApiReport[]> {
   return getJson<ApiReport[]>('/reports/');
 }
 
+export async function deleteReport(reportId: string): Promise<void> {
+  const response = await apiFetch(`/reports/${encodeURIComponent(reportId)}`, { method: 'DELETE' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+
 export interface ApiMyUpload {
   id: string;
   room_slug: string;

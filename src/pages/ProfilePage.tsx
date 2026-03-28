@@ -1,7 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { listMyUploads, listReports, type ApiMyUpload, type ApiReport } from '../services/apiClient';
+import {
+  deleteReport,
+  listMyUploads,
+  listReports,
+  type ApiMyUpload,
+  type ApiReport,
+} from '../services/apiClient';
 
 /** Same navigation contract as FileExplorer → StaticViewer / PCD. */
 function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpload): void {
@@ -69,6 +75,96 @@ function truncate(s: string | null | undefined, max: number): string {
   return `${t.slice(0, max)}…`;
 }
 
+function ReportActionsMenu({
+  report,
+  onOpenPdf,
+  onDelete,
+  busy,
+}: {
+  report: ApiReport;
+  onOpenPdf: () => void;
+  onDelete: () => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative flex justify-end">
+      <button
+        type="button"
+        disabled={busy}
+        aria-label="Report actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="rounded p-1.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-meta-4 disabled:opacity-50"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="h-5 w-5"
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"
+          />
+        </svg>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-lg dark:border-strokedark dark:bg-boxdark"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!report.pdf_url || busy}
+            onClick={() => {
+              if (report.pdf_url) onOpenPdf();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+          >
+            Open PDF
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => {
+              onDelete();
+              setOpen(false);
+            }}
+            className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -79,6 +175,7 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadsError, setUploadsError] = useState<string | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -115,6 +212,19 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleDeleteReport = async (id: string) => {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return;
+    setDeletingReportId(id);
+    try {
+      await deleteReport(id);
+      setReports((prev) => (prev ? prev.filter((r) => r.id !== id) : null));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not delete report.');
+    } finally {
+      setDeletingReportId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -174,7 +284,7 @@ const ProfilePage: React.FC = () => {
           <div className="rounded-lg border border-stroke bg-gray-50 p-8 text-center dark:border-strokedark dark:bg-gray-800">
             <p className="text-gray-700 dark:text-gray-200">No reports stored for your account yet.</p>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Open an image from the room explorer andpublish a report from the viewer.
+              Open an image from the room explorer and publish a report from the viewer.
             </p>
             <Link
               to="/A6_stern"
@@ -202,8 +312,8 @@ const ProfilePage: React.FC = () => {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
                     Flags
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
-                    PDF
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -254,24 +364,19 @@ const ProfilePage: React.FC = () => {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      {r.pdf_url ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate('/pdfViewer', {
-                              state: {
-                                pdfUrl: r.pdf_url!,
-                                title: `Observation report ${r.id.slice(0, 8)}…`,
-                              },
-                            })
-                          }
-                          className="text-sm font-medium text-primary hover:underline"
-                        >
-                          Open PDF
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">No file</span>
-                      )}
+                      <ReportActionsMenu
+                        report={r}
+                        busy={deletingReportId === r.id}
+                        onOpenPdf={() =>
+                          navigate('/pdfViewer', {
+                            state: {
+                              pdfUrl: r.pdf_url!,
+                              title: `Observation report ${r.id.slice(0, 8)}…`,
+                            },
+                          })
+                        }
+                        onDelete={() => void handleDeleteReport(r.id)}
+                      />
                     </td>
                   </tr>
                 ))}
