@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarLinkGroup from './SidebarLinkGroup';
-import Calendar from '../../pages/Calendar';
+import HomeCalendar from '../../pages/HomeCalendar';
 import { useNavigate } from 'react-router-dom';
 import { getHDImagePath } from '../../utils/pathutils'
 import FileTree from '../FileTree';
@@ -223,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       <div className="w-full mb-4">
         {sidebarOpen && (
           <div className="w-full px-3.5">
-            <Calendar />
+            <HomeCalendar />
           </div>
         )}
       </div>
