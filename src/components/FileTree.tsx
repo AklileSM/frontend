@@ -102,31 +102,10 @@ const FileTree: React.FC = () => {
 
   return (
     <div
-      className="text-[#f5f5f7] rounded-lg w-full overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+      className="text-[#f5f5f7] rounded-lg w-full overflow-y-auto max-h-[min(480px,50vh)] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
       style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}
     >
-      <h2
-        onClick={() => setFileTreeOpen((prev) => ({ ...prev, fileTree: !prev.fileTree }))}
-        className={`flex items-center font-bold text-lg cursor-pointer px-4 py-2 transition-colors duration-200 hover:text-primary ${
-          activeItem === 'A6_stern' ? 'text-primary' : ''
-        }`}
-      >
-        <span className="mr-2">
-          {fileTreeOpen.fileTree ? <FaChevronDown /> : <FaChevronRight />}
-        </span>
-        <svg
-          className="w-5 h-5 mr-2"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path d="M3 4a1 1 0 0 1 1-1h6.236a1 1 0 0 1 .707.293l1.414 1.414H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z" />
-        </svg>
-        A6_stern
-      </h2>
-
-      {fileTreeOpen.fileTree && (
-        <div className="ml-4">
+      <div className="ml-0 pl-0">
           {loading && (
             <p className="px-4 py-2 text-sm text-gray-400" role="status">
               Loading files…
@@ -303,8 +282,7 @@ const FileTree: React.FC = () => {
                 </div>
               );
             })}
-        </div>
-      )}
+      </div>
     </div>
   );
 };

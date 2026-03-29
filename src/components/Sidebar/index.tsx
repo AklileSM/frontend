@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import Calendar from '../../pages/Calendar';
 import FileTree from '../FileTree';
@@ -20,10 +21,17 @@ const CONTENT_TRANSITION =
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
   const [heavyContentMounted, setHeavyContentMounted] = useState(false);
+  const [a6SternFilesOpen, setA6SternFilesOpen] = useState(false);
 
   useEffect(() => {
     if (sidebarOpen) setHeavyContentMounted(true);
   }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')) {
+      setA6SternFilesOpen(true);
+    }
+  }, [pathname]);
 
   return (
     <aside
@@ -163,7 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
                           <li>
                             <NavLink
-                              to="projectx"
+                              to="/projectx"
                               className={({ isActive }) =>
                                 'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ' +
                                 (isActive && '!text-white')
@@ -183,16 +191,49 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               Project Y
                             </NavLink>
                           </li>
-                          <li>
-                            <NavLink
-                              to="/A6_Stern"
-                              className={({ isActive }) =>
-                                'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ' +
-                                (isActive && '!text-white')
-                              }
-                            >
-                              A6 Stern
-                            </NavLink>
+                          <li className="flex flex-col gap-1">
+                            <div className="flex flex-col">
+                              <div
+                                className={`flex items-center gap-1 rounded-md py-1.5 pl-2 pr-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ${
+                                  pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')
+                                    ? '!text-white'
+                                    : ''
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setA6SternFilesOpen((v) => !v)}
+                                  className="shrink-0 rounded p-0.5 text-current hover:opacity-90"
+                                  aria-expanded={a6SternFilesOpen}
+                                  aria-label={a6SternFilesOpen ? 'Collapse A6 Stern files' : 'Expand A6 Stern files'}
+                                >
+                                  {a6SternFilesOpen ? <FaChevronDown size={14} /> : <FaChevronRight size={14} />}
+                                </button>
+                                <svg
+                                  className="h-4 w-4 shrink-0"
+                                  fill="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  aria-hidden
+                                >
+                                  <path d="M3 4a1 1 0 0 1 1-1h6.236a1 1 0 0 1 .707.293l1.414 1.414H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z" />
+                                </svg>
+                                <NavLink
+                                  to="/A6_Stern"
+                                  className={({ isActive }) =>
+                                    'min-w-0 flex-1 rounded px-1 py-0.5 text-left ' +
+                                    (isActive ? '!text-white' : 'text-inherit')
+                                  }
+                                >
+                                  A6 Stern
+                                </NavLink>
+                              </div>
+                              {heavyContentMounted && open && a6SternFilesOpen ? (
+                                <div className="mt-1 border-l border-gray-600 pl-2">
+                                  <FileTree />
+                                </div>
+                              ) : null}
+                            </div>
                           </li>
                         </ul>
                       </div>
@@ -200,8 +241,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   </React.Fragment>
                 )}
               </SidebarLinkGroup>
-
-              {heavyContentMounted ? <FileTree /> : null}
             </ul>
           </div>
 
