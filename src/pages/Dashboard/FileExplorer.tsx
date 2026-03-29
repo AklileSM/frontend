@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSelectedDate } from '../../components/selectedDate ';
+import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +24,9 @@ export type FileExplorerProps = {
 };
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectLabel }) => {
-  const { selectedDate } = useSelectedDate();
+  const { getDateForScope } = useSelectedDate();
+  const dateScope = filterProjectSlug ?? EXPLORER_DATE_SCOPE_A6;
+  const selectedDate = getDateForScope(dateScope);
   const { user } = useAuth();
   const canUpload = user?.role === 'admin';
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
@@ -142,7 +144,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const thumbnailsForSelectedDate = useMemo(() => roomsForDate, [roomsForDate]);
+  /** API returns all rooms for the date; restrict to this project's rooms when filtered. */
+  const thumbnailsForSelectedDate = useMemo(() => {
+    if (!filterProjectSlug) return roomsForDate;
+    const allowed = new Set(roomOptions.map((r) => r.name));
+    const out: Record<string, ApiRoomMediaGroup> = {};
+    for (const [name, group] of Object.entries(roomsForDate)) {
+      if (allowed.has(name)) out[name] = group;
+    }
+    return out;
+  }, [roomsForDate, roomOptions, filterProjectSlug]);
 
   const toggleRoomCollapse = (room: string) => {
     setCollapsedRooms((prevState) => ({
