@@ -6,8 +6,6 @@ import PageTitle from './components/PageTitle';
 import DefaultLayout from './layout/DefaultLayout';
 import FileExplorer from './pages/Dashboard/FileExplorer';
 import { SelectedDateProvider } from './components/selectedDate ';
-import Projectx from './pages/Projectx';
-import Projecty from './pages/Projecty';
 import InteractiveViewer from './components/InteractiveViewer';
 import StaticViewer from './components/StaticViewer';
 import ComparePage from './components/Compare/ComparePage';
@@ -68,19 +66,29 @@ function App() {
                       <ProtectedRoute>
                         <>
                           <PageTitle title="A6_stern | Projects " />
-                          <FileExplorer />
+                          <FileExplorer filterProjectSlug="a6-stern" />
                         </>
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="/projectx" element={<ProtectedRoute><Projectx /></ProtectedRoute>} />
+                  <Route
+                    path="/projectx"
+                    element={
+                      <ProtectedRoute>
+                        <>
+                          <PageTitle title="Project X | Projects " />
+                          <FileExplorer filterProjectSlug="projectx" projectLabel="Project X" />
+                        </>
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/projecty"
                     element={
                       <ProtectedRoute>
                         <>
                           <PageTitle title="Project Y | Projects " />
-                          <Projecty />
+                          <FileExplorer filterProjectSlug="projecty" projectLabel="Project Y" />
                         </>
                       </ProtectedRoute>
                     }

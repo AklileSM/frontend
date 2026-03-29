@@ -26,5 +26,6 @@ export function projectPathForPathname(pathname: string): string {
   if (pathname === '/projectx' || pathname.startsWith('/projectx/')) return '/projectx';
   if (pathname === '/projecty' || pathname.startsWith('/projecty/')) return '/projecty';
   if (pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')) return '/A6_Stern';
+  if (pathname === '/RoomExplorer' || pathname.startsWith('/RoomExplorer/')) return '/A6_Stern';
   return '/A6_Stern';
 }

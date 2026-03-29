@@ -3,7 +3,12 @@ import React, { useState, useEffect } from 'react';
 import Thumbnail from '../components/Thumbnail';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ApiMediaFile, ApiRoomMediaGroup, getExplorerByRoom } from '../services/apiClient';
+import { ApiMediaFile, ApiRoomMediaGroup, getExplorerByRoom, listRooms } from '../services/apiClient';
+import {
+  normalizeRoomSlug,
+  readStoredA6Room,
+  writeStoredA6Room,
+} from '../utils/a6RoomPreferences';
 
 interface RoomFileViewerProps {
   room: string;
@@ -18,10 +23,48 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const room = location.state?.room || 'defaultRoom';
+
+  const [room, setRoom] = useState<string>(() => {
+    const fromState = normalizeRoomSlug((location.state as { room?: string } | null)?.room);
+    if (fromState) return fromState;
+    return readStoredA6Room();
+  });
 
   useEffect(() => {
-    if (!room || room === 'defaultRoom') {
+    const fromState = normalizeRoomSlug((location.state as { room?: string } | null)?.room);
+    if (!fromState) return;
+    setRoom((prev) => {
+      if (fromState === prev) return prev;
+      writeStoredA6Room(fromState);
+      return fromState;
+    });
+  }, [location.key]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listRooms()
+      .then((rooms) => {
+        if (cancelled || rooms.length === 0) return;
+        const slugs = new Set(rooms.map((r) => r.slug));
+        setRoom((r) => {
+          if (slugs.has(r)) return r;
+          const fallback = slugs.has('room1') ? 'room1' : rooms[0]!.slug;
+          writeStoredA6Room(fallback);
+          return fallback;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (room) writeStoredA6Room(room);
+  }, [room]);
+
+  useEffect(() => {
+    if (!room) {
       setRoomData({});
       return;
     }

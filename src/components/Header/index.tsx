@@ -9,6 +9,7 @@ import {
   type NavProject,
 } from '../../config/projectNav';
 import { listProjects } from '../../services/apiClient';
+import { readStoredA6Room } from '../../utils/a6RoomPreferences';
 
 const Header = () => {
   const { pathname } = useLocation();
@@ -56,7 +57,14 @@ const Header = () => {
             id="header-project-select"
             className="rounded-md border border-stroke bg-white px-2 py-1.5 text-sm font-medium text-black focus:border-primary focus:outline-none dark:border-strokedark dark:bg-boxdark dark:text-white"
             value={selectedPath}
-            onChange={(e) => navigate(e.target.value)}
+            onChange={(e) => {
+              const path = e.target.value;
+              if (path === '/A6_Stern') {
+                navigate('/RoomExplorer', { state: { room: readStoredA6Room() } });
+                return;
+              }
+              navigate(path);
+            }}
           >
             {navProjects.map((p) => (
               <option key={p.slug} value={p.path}>

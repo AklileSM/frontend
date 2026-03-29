@@ -58,10 +58,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   }, []);
 
   useEffect(() => {
-    if (pathname !== '/projectx' && pathname !== '/projecty' && pathname !== '/A6_Stern') {
-      return;
+    let slug: string | undefined;
+    if (pathname === '/RoomExplorer' || pathname.startsWith('/RoomExplorer/')) {
+      slug = 'a6-stern';
+    } else if (pathname === '/projectx' || pathname === '/projecty' || pathname === '/A6_Stern') {
+      slug = FALLBACK_PROJECT_NAV.find((p) => p.path === pathname)?.slug;
     }
-    const slug = FALLBACK_PROJECT_NAV.find((p) => p.path === pathname)?.slug;
     if (!slug) return;
     setOpenBySlug(() => {
       const next: Record<string, boolean> = {};
@@ -149,7 +151,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   pathname.includes('dashboard') ||
                   pathname === '/A6_Stern' ||
                   pathname === '/projectx' ||
-                  pathname === '/projecty'
+                  pathname === '/projecty' ||
+                  pathname === '/RoomExplorer' ||
+                  pathname.startsWith('/RoomExplorer/')
                 }
                 expanded={sidebarOpen}
               >
@@ -218,7 +222,11 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             const meta = navProjects.find((p) => p.slug === slug);
                             if (!meta) return null;
                             const isActive =
-                              pathname === meta.path || pathname.startsWith(`${meta.path}/`);
+                              pathname === meta.path ||
+                              pathname.startsWith(`${meta.path}/`) ||
+                              (slug === 'a6-stern' &&
+                                (pathname === '/RoomExplorer' ||
+                                  pathname.startsWith('/RoomExplorer/')));
                             const expanded = !!openBySlug[slug];
                             const toggle = () =>
                               setOpenBySlug((prev) => ({ ...prev, [slug]: !prev[slug] }));

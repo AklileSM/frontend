@@ -9,13 +9,21 @@ import {
   ApiRoomMediaGroup,
   deleteFileAsset,
   getExplorerByDate,
+  listProjects,
   listRooms,
   uploadSingleFile,
 } from '../../services/apiClient';
 import type { AuthUser } from '../../auth/authSession';
 import { useAuth } from '../../context/AuthContext';
 
-const FileExplorer: React.FC = () => {
+export type FileExplorerProps = {
+  /** When set, only rooms belonging to this project slug are listed (empty if project missing). */
+  filterProjectSlug?: string;
+  /** Optional label for breadcrumb when scoped to a project. */
+  projectLabel?: string;
+};
+
+const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectLabel }) => {
   const { selectedDate } = useSelectedDate();
   const { user } = useAuth();
   const canUpload = user?.role === 'admin';
@@ -48,25 +56,32 @@ const FileExplorer: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     setRoomsFetchError(null);
-    listRooms()
-      .then((rooms) => {
-        if (!cancelled) {
-          setRoomOptions(rooms);
-          if (rooms.length > 0) {
-            setRoomSlug((prev) => (prev && rooms.some((r) => r.slug === prev) ? prev : rooms[0].slug));
-          }
+    Promise.all([listRooms(), listProjects()])
+      .then(([rooms, projects]) => {
+        if (cancelled) return;
+        let list = rooms;
+        if (filterProjectSlug) {
+          const proj = projects.find((x) => x.slug === filterProjectSlug);
+          list = proj ? rooms.filter((r) => r.project_id === proj.id) : [];
+        }
+        setRoomOptions(list);
+        if (list.length > 0) {
+          setRoomSlug((prev) => (prev && list.some((r) => r.slug === prev) ? prev : list[0].slug));
+        } else {
+          setRoomSlug('');
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setRoomOptions([]);
+          setRoomSlug('');
           setRoomsFetchError(err instanceof Error ? err.message : 'Could not load rooms.');
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [filterProjectSlug]);
 
   const explorerFallbackRooms = useMemo((): ApiRoom[] => {
     const out: ApiRoom[] = [];
@@ -80,7 +95,8 @@ const FileExplorer: React.FC = () => {
     return out;
   }, [roomsForDate]);
 
-  const effectiveRoomOptions = roomOptions.length > 0 ? roomOptions : explorerFallbackRooms;
+  const effectiveRoomOptions =
+    roomOptions.length > 0 ? roomOptions : filterProjectSlug ? [] : explorerFallbackRooms;
 
   useEffect(() => {
     if (effectiveRoomOptions.length === 0) return;
@@ -348,11 +364,19 @@ const FileExplorer: React.FC = () => {
     ));
   };
 
+  const breadcrumbLabel =
+    projectLabel && selectedDate
+      ? `${projectLabel} · ${selectedDate}`
+      : projectLabel || selectedDate || 'Explorer';
+
   return (
     <>
-      <Breadcrumb pageName={`${selectedDate}`} />
+      <Breadcrumb pageName={breadcrumbLabel} />
       <div className="w-full bg-white rounded-md shadow-default dark:bg-boxdark dark:text-white">
         <div className="p-4 border-b border-gray-300 dark:border-strokedark">
+          {projectLabel ? (
+            <p className="text-sm font-medium text-bodydark dark:text-gray-400 mb-1">{projectLabel}</p>
+          ) : null}
           <h1 className="text-xl font-bold text-black dark:text-white">
             Selected Date: <span className="font-semibold">{selectedDate || 'None'}</span>
           </h1>
