@@ -1,9 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import {
+  FALLBACK_PROJECT_NAV,
+  mergeProjectNav,
+  type NavProject,
+} from '../../config/projectNav';
+import { listProjects } from '../../services/apiClient';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import Calendar from '../../pages/Calendar';
 import FileTree from '../FileTree';
+
+/** Sidebar order: X, Y, then A6 (file tree). */
+const SIDEBAR_PROJECT_SLUGS = ['projectx', 'projecty', 'a6-stern'] as const;
+
+function ProjectFolderIcon() {
+  const cn = 'h-4 w-4 shrink-0';
+  return (
+    <svg
+      className={cn}
+      fill="currentColor"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path d="M3 4a1 1 0 0 1 1-1h6.236a1 1 0 0 1 .707.293l1.414 1.414H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z" />
+    </svg>
+  );
+}
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -21,16 +44,32 @@ const CONTENT_TRANSITION =
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
   const [heavyContentMounted, setHeavyContentMounted] = useState(false);
-  const [a6SternFilesOpen, setA6SternFilesOpen] = useState(false);
+  const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
+  const [openBySlug, setOpenBySlug] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (sidebarOpen) setHeavyContentMounted(true);
   }, [sidebarOpen]);
 
   useEffect(() => {
-    if (pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')) {
-      setA6SternFilesOpen(true);
+    listProjects()
+      .then((api) => setNavProjects(mergeProjectNav(api)))
+      .catch(() => setNavProjects(FALLBACK_PROJECT_NAV));
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== '/projectx' && pathname !== '/projecty' && pathname !== '/A6_Stern') {
+      return;
     }
+    const slug = FALLBACK_PROJECT_NAV.find((p) => p.path === pathname)?.slug;
+    if (!slug) return;
+    setOpenBySlug(() => {
+      const next: Record<string, boolean> = {};
+      for (const p of FALLBACK_PROJECT_NAV) {
+        next[p.slug] = p.slug === slug;
+      }
+      return next;
+    });
   }, [pathname]);
 
   return (
@@ -105,7 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
             <ul className="mb-6 flex flex-col gap-1.5">
               <SidebarLinkGroup
-                activeCondition={pathname === '/' || pathname.includes('dashboard')}
+                activeCondition={
+                  pathname === '/' ||
+                  pathname.includes('dashboard') ||
+                  pathname === '/A6_Stern' ||
+                  pathname === '/projectx' ||
+                  pathname === '/projecty'
+                }
                 expanded={sidebarOpen}
               >
                 {(handleClick, open) => (
@@ -169,72 +214,42 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                     {open && (
                       <div className="transform overflow-hidden">
                         <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
-                          <li>
-                            <NavLink
-                              to="/projectx"
-                              className={({ isActive }) =>
-                                'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ' +
-                                (isActive && '!text-white')
-                              }
-                            >
-                              Project X
-                            </NavLink>
-                          </li>
-                          <li>
-                            <NavLink
-                              to="/projecty"
-                              className={({ isActive }) =>
-                                'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ' +
-                                (isActive && '!text-white')
-                              }
-                            >
-                              Project Y
-                            </NavLink>
-                          </li>
-                          <li className="flex flex-col gap-1">
-                            <div className="flex flex-col">
-                              <div
-                                className={`flex items-center gap-1 rounded-md py-1.5 pl-2 pr-4 font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ${
-                                  pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')
-                                    ? '!text-white'
-                                    : ''
-                                }`}
-                              >
+                          {SIDEBAR_PROJECT_SLUGS.map((slug) => {
+                            const meta = navProjects.find((p) => p.slug === slug);
+                            if (!meta) return null;
+                            const isActive =
+                              pathname === meta.path || pathname.startsWith(`${meta.path}/`);
+                            const expanded = !!openBySlug[slug];
+                            const toggle = () =>
+                              setOpenBySlug((prev) => ({ ...prev, [slug]: !prev[slug] }));
+
+                            return (
+                              <li key={slug} className="flex flex-col gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => setA6SternFilesOpen((v) => !v)}
-                                  className="shrink-0 rounded p-0.5 text-current hover:opacity-90"
-                                  aria-expanded={a6SternFilesOpen}
-                                  aria-label={a6SternFilesOpen ? 'Collapse A6 Stern files' : 'Expand A6 Stern files'}
+                                  onClick={toggle}
+                                  className={`flex w-full items-center gap-2 rounded-md px-4 py-2 text-left font-medium text-bodydark2 duration-300 ease-in-out hover:text-white ${
+                                    isActive ? '!text-white' : ''
+                                  }`}
+                                  aria-expanded={expanded}
                                 >
-                                  {a6SternFilesOpen ? <FaChevronDown size={14} /> : <FaChevronRight size={14} />}
+                                  <ProjectFolderIcon />
+                                  <span className="min-w-0 flex-1">{meta.name}</span>
                                 </button>
-                                <svg
-                                  className="h-4 w-4 shrink-0"
-                                  fill="currentColor"
-                                  viewBox="0 0 24 24"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  aria-hidden
-                                >
-                                  <path d="M3 4a1 1 0 0 1 1-1h6.236a1 1 0 0 1 .707.293l1.414 1.414H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z" />
-                                </svg>
-                                <NavLink
-                                  to="/A6_Stern"
-                                  className={({ isActive }) =>
-                                    'min-w-0 flex-1 rounded px-1 py-0.5 text-left ' +
-                                    (isActive ? '!text-white' : 'text-inherit')
-                                  }
-                                >
-                                  A6 Stern
-                                </NavLink>
-                              </div>
-                              {heavyContentMounted && open && a6SternFilesOpen ? (
-                                <div className="mt-1 border-l border-gray-600 pl-2">
-                                  <FileTree />
-                                </div>
-                              ) : null}
-                            </div>
-                          </li>
+                                {heavyContentMounted && expanded ? (
+                                  <div className="mt-1 border-l border-gray-600 pl-2">
+                                    {slug === 'a6-stern' ? (
+                                      <FileTree />
+                                    ) : (
+                                      <p className="px-2 py-2 text-xs text-gray-400">
+                                        Empty project — no rooms or files yet.
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}

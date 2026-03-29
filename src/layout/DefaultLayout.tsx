@@ -2,7 +2,7 @@ import React, { useState, ReactNode } from 'react';
 import Header from '../components/Header/index';
 import Sidebar from '../components/Sidebar/index';
 
-const DefaultLayout: React.FC<{ children: ReactNode; title?: string }> = ({ children, title }) => {
+const DefaultLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -20,7 +20,7 @@ const DefaultLayout: React.FC<{ children: ReactNode; title?: string }> = ({ chil
             sidebarOpen ? "ml-64" : "ml-16"
           }`}
         >
-          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} title={title} />
+          <Header />
           <main>
             <div className="mx-auto p-4 md:p-6 2xl:p-10">{children}</div>
           </main>

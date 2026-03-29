@@ -75,6 +75,12 @@ export interface ApiRoom {
   project_id: string;
 }
 
+export interface ApiProject {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 function addRoomGroupsToDateCounts(
   acc: Record<string, DateMediaCounts>,
   dates: Record<string, ApiRoomMediaGroup>,
@@ -108,6 +114,10 @@ async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(await parseApiError(response));
   }
   return response.json() as Promise<T>;
+}
+
+export function listProjects(): Promise<ApiProject[]> {
+  return getJson<ApiProject[]>('/projects/');
 }
 
 export function getExplorerByDate(date: string): Promise<ExplorerByDateResponse> {

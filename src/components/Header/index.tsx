@@ -1,15 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DarkModeSwitcher from './DarkModeSwitcher';
 import HeaderProfileMenu from './HeaderProfileMenu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
- const Header = (props: {
-  sidebarOpen: string | boolean | undefined;
-  setSidebarOpen: (arg0: boolean) => void;
-  title?: string;
-}) => {
+import {
+  FALLBACK_PROJECT_NAV,
+  mergeProjectNav,
+  projectPathForPathname,
+  type NavProject,
+} from '../../config/projectNav';
+import { listProjects } from '../../services/apiClient';
 
-  const { pathname } = useLocation(); // Get current route
-  const navigate = useNavigate();    // Navigation function
+const Header = () => {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
+
+  useEffect(() => {
+    listProjects()
+      .then((api) => setNavProjects(mergeProjectNav(api)))
+      .catch(() => setNavProjects(FALLBACK_PROJECT_NAV));
+  }, []);
+
+  const selectedPath = projectPathForPathname(pathname);
 
   const isComparePage = pathname === '/compare';
   const [isBackModalOpen, setIsBackModalOpen] = useState(false);
@@ -30,14 +42,28 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
     <div>
       <header className="sticky top-0 z-9999 flex w-full bg-white drop-shadow-1 dark:bg-boxdark dark:drop-shadow-none">
       <div className="flex flex-grow items-center justify-between px-4 py-4 shadow-2 md:px-6 2xl:px-11">
-        <div className="hidden sm:block">
-          {/* Dynamic Title */}
-          <Link to={'/'}>
-            <h2 className="text-title-md font-semibold text-black dark:text-white">
-              {props.title || "Default Title"}
-            </h2>
+        <div className="hidden sm:flex sm:items-center sm:gap-3">
+          <Link
+            to="/"
+            className="text-title-md font-semibold text-black hover:opacity-90 dark:text-white"
+          >
+            Projects
           </Link>
-          
+          <label htmlFor="header-project-select" className="sr-only">
+            Current project
+          </label>
+          <select
+            id="header-project-select"
+            className="rounded-md border border-stroke bg-white px-2 py-1.5 text-sm font-medium text-black focus:border-primary focus:outline-none dark:border-strokedark dark:bg-boxdark dark:text-white"
+            value={selectedPath}
+            onChange={(e) => navigate(e.target.value)}
+          >
+            {navProjects.map((p) => (
+              <option key={p.slug} value={p.path}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
         
         <div className="flex items-center gap-3 2xsm:gap-7">

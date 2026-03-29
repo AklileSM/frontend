@@ -39,27 +39,6 @@ function App() {
     setTimeout(() => setLoading(false), 500);
   }, []);
 
-  const getTitleForPath = (path: string) => {
-    switch (path) {
-      case "/A6_Stern":
-        return "Projects | A6_stern";
-      case "/projectx":
-        return "Projects | Project X";
-      case "/projecty":
-        return "Projects | Project Y";
-      case "/":
-        return "Home | A6_stern";
-      case "/profile":
-        return "Profile | A6_stern";
-      case "/pdfViewer":
-        return "PDF | A6_stern";
-      default:
-        return "Projects | A6_stern";
-    }
-  };
-
-  const currentTitle = getTitleForPath(pathname);
-
   if (loading) return <Loader />;
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/unauthorized';
@@ -81,7 +60,7 @@ function App() {
               <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
             </Routes>
             {pathname !== '/' && (
-              <DefaultLayout title={currentTitle}>
+              <DefaultLayout>
                 <Routes>
                   <Route
                     path="/A6_Stern"
