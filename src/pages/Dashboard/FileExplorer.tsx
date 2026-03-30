@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -50,7 +50,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeTab !== 'images' && activeTab !== 'pdfs') return;
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [activeTab]);
@@ -224,8 +223,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const handleUpload = async () => {
     if (!selectedDate || !file || !roomSlug) return;
-    if (activeTab !== 'images' && activeTab !== 'pdfs') return;
-    const mediaType = activeTab === 'pdfs' ? 'pdf' : 'image';
+    if (activeTab !== 'images' && activeTab !== 'pdfs' && activeTab !== 'pointclouds') return;
+    const mediaType = activeTab === 'pdfs' ? 'pdf' : activeTab === 'pointclouds' ? 'pointcloud' : 'image';
     setUploadError(null);
     setUploadOk(null);
     setUploading(true);
@@ -236,10 +235,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
         mediaType,
         captureDate: selectedDate,
       });
-      setUploadOk(`Uploaded “${file.name}”.`);
+      setUploadOk(activeTab === 'pointclouds' ? `Uploaded "${file.name}". Converting to Potree format \u2014 check back in a few minutes.` : `Uploaded "${file.name}".`);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setActiveTab(activeTab === 'pdfs' ? 'pdfs' : 'images');
+      // stay on current tab after upload
       reloadExplorer();
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed');
@@ -417,10 +416,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
           </p>
         </div>
 
-        {selectedDate && canUpload && (activeTab === 'images' || activeTab === 'pdfs') && (
+        {selectedDate && canUpload && (activeTab === 'images' || activeTab === 'pdfs' || activeTab === 'pointclouds') && (
           <div className="p-4 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/30">
             <h2 className="text-sm font-semibold text-black dark:text-white mb-3">
-              {activeTab === 'pdfs' ? 'Upload PDF' : 'Upload image'}
+              {activeTab === 'pdfs' ? 'Upload PDF' : activeTab === 'pointclouds' ? 'Upload point cloud (.laz)' : 'Upload image'}
             </h2>
             <p className="text-xs text-bodydark dark:text-gray-400 mb-3">
               Files are stored for this selected date and the room you pick. They appear under that room in the lists
@@ -461,12 +460,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                 </div>
                 <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                    {activeTab === 'pdfs' ? 'PDF file' : 'Image file'}
+                    {activeTab === 'pdfs' ? 'PDF file' : activeTab === 'pointclouds' ? 'LAZ file' : 'Image file'}
                   </label>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept={activeTab === 'pdfs' ? 'application/pdf,.pdf' : 'image/*'}
+                    accept={activeTab === 'pdfs' ? 'application/pdf,.pdf' : activeTab === 'pointclouds' ? '.laz,.las' : 'image/*'}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     className="text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
                   />
