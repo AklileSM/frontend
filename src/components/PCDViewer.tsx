@@ -164,7 +164,7 @@ const PCDViewer = () => {
       <div ref={viewerRef} className="relative flex w-full h-[70vh] mt-4 bg-gray-700 rounded-lg overflow-hidden shadow-lg">
         <div style={{ width: "100%", height: "100vh" }}>
           <iframe
-            src="potree/my.html" // Path to your HTML file in the public folder
+            src={`/potree/my.html?url=${encodeURIComponent(modelUrl)}`}
             style={{ width: "100%", height: "100%", border: "none" }}
             title="PCD Viewer"
           />

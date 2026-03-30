@@ -248,19 +248,36 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     }
   };
 
+  // Auto-poll every 5 s when any visible point cloud is still converting.
+  useEffect(() => {
+    const hasPending = Object.values(thumbnailsForSelectedDate).some((group) =>
+      group.pointclouds.some(
+        (f) => f.conversion_status === 'pending' || f.conversion_status === 'processing',
+      ),
+    );
+    if (!hasPending) return;
+    const id = setInterval(() => setRefreshKey((k) => k + 1), 5000);
+    return () => clearInterval(id);
+  }, [thumbnailsForSelectedDate]);
+
   const renderThumbnails = (thumbnails: ApiMediaFile[], roomDisplayName: string) => {
     return (
       <div className="grid grid-cols-2 gap-4">
         {thumbnails.map((thumbnail) => {
           const fileName = thumbnail.file_name;
-
           const showDelete = canDeleteFiles(user);
+          const isPointcloudReady =
+            thumbnail.type !== 'pointcloud' || thumbnail.conversion_status === 'ready';
+          const isPointcloudPending =
+            thumbnail.type === 'pointcloud' &&
+            (thumbnail.conversion_status === 'pending' || thumbnail.conversion_status === 'processing');
 
           return (
             <div
               key={thumbnail.id}
-              className="flex flex-col mb-4 max-w-s"
+              className={`flex flex-col mb-4 max-w-s ${isPointcloudPending ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => {
+                if (!isPointcloudReady) return;
                 if (thumbnail.type === 'image') {
                   navigate('/staticViewer', {
                     state: {
@@ -288,7 +305,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
               }}
             >
               <div className="relative">
-                <Thumbnail src={thumbnail.src} type={thumbnail.type} />
+                <Thumbnail
+                  src={thumbnail.src}
+                  type={thumbnail.type}
+                  conversionStatus={thumbnail.conversion_status}
+                />
                 {showDelete ? (
                   <button
                     type="button"

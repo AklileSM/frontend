@@ -48,17 +48,19 @@
 		viewer.loadSettingsFromURL();
 		viewer.setBackground("gradient");
 		
-		// viewer.setDescription("Point cloud courtesy of <a target='_blank' href='https://www.sigeom.ch/'>sigeom sa</a>");
-		
 		viewer.loadGUI(() => {
 			viewer.setLanguage('en');
 			$("#menu_tools").next().show();
 			$("#menu_clipping").next().show();
 			viewer.toggleSidebar();
 		});
+
+		// Resolve point cloud URL: prefer the ?url= query parameter so the
+		// parent page can inject a per-asset URL; fall back to the local sample.
+		const _params = new URLSearchParams(window.location.search);
+		const pointcloudUrl = _params.get("url") || "../PCD/potree/metadata.json";
 		
-		// Load and add point cloud to scene
-		Potree.loadPointCloud("../PCD/potree/metadata.json", "sigeom.sa", e => {
+		Potree.loadPointCloud(pointcloudUrl, "scan", e => {
 			let scene = viewer.scene;
 			let pointcloud = e.pointcloud;
 			
@@ -68,12 +70,7 @@
 			material.shape = Potree.PointShape.SQUARE;
 			
 			scene.addPointCloud(pointcloud);
-			
 			viewer.fitToScreen();
-			// scene.view.setView(
-			// 	[589974.341, 231698.397, 986.146],
-			// 	[589851.587, 231428.213, 715.634],
-			// );
 		});
 
 	</script>

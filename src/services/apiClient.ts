@@ -37,6 +37,8 @@ export interface ApiMediaFile {
   capture_date: string;
   /** Present when upload recorded uploader; used for delete UI vs viewer role. */
   uploaded_by_user_id?: string | null;
+  /** Point clouds only: pending | processing | ready | failed */
+  conversion_status?: string | null;
 }
 
 export interface ApiRoomMediaGroup {
@@ -300,11 +302,22 @@ export interface ApiMyUpload {
   created_at: string;
   src: string;
   full_src: string | null;
+  /** Point clouds only: pending | processing | ready | failed */
+  conversion_status?: string | null;
 }
 
 /** Admin/manager only: file assets recorded as uploaded by this user. */
 export function listMyUploads(): Promise<ApiMyUpload[]> {
   return getJson<ApiMyUpload[]>('/files/my-uploads');
+}
+
+export interface ApiConversionStatus {
+  status: 'pending' | 'processing' | 'ready' | 'failed' | 'unknown';
+  error?: string | null;
+}
+
+export function getConversionStatus(fileId: string): Promise<ApiConversionStatus> {
+  return getJson<ApiConversionStatus>(`/files/${fileId}/conversion-status`);
 }
 
 /** Upload a published field-observation PDF: stored in MinIO and recorded in DB for the signed-in user. */

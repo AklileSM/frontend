@@ -17,6 +17,10 @@ function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpl
   const url = u.full_src ?? u.src;
   if (!url) return;
 
+  if (u.media_type === 'pointcloud' && u.conversion_status !== 'ready') {
+    return; // Still converting — do nothing
+  }
+
   if (u.media_type === 'image') {
     const cap =
       typeof u.capture_date === 'string' && u.capture_date.length >= 10
@@ -717,7 +721,24 @@ const ProfilePage: React.FC = () => {
                         <span title={u.room_slug}>{u.room_name}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-sm capitalize text-gray-700 dark:text-gray-300">
-                        {u.media_type}
+                        <span>{u.media_type}</span>
+                        {u.media_type === 'pointcloud' && u.conversion_status && u.conversion_status !== 'ready' && (
+                          <span
+                            className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              u.conversion_status === 'failed'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                            }`}
+                          >
+                            {(u.conversion_status === 'pending' || u.conversion_status === 'processing') && (
+                              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                            )}
+                            {u.conversion_status === 'pending' ? 'Queued' : u.conversion_status === 'processing' ? 'Converting' : 'Failed'}
+                          </span>
+                        )}
                       </td>
                       <td className="max-w-[200px] px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                         <span className="break-words">{u.file_name}</span>
