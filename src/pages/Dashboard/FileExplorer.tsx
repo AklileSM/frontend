@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -308,6 +308,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                   src={thumbnail.src}
                   type={thumbnail.type}
                   conversionStatus={thumbnail.conversion_status}
+                  conversionError={thumbnail.conversion_error}
                 />
                 {showDelete ? (
                   <button

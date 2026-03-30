@@ -5,9 +5,10 @@ interface ThumbnailProps {
   type: 'image' | 'video' | 'pointcloud' | 'pdf';
   altText?: string;
   conversionStatus?: string | null;
+  conversionError?: string | null;
 }
 
-const Thumbnail: React.FC<ThumbnailProps> = ({ src, type, altText, conversionStatus }) => {
+const Thumbnail: React.FC<ThumbnailProps> = ({ src, type, altText, conversionStatus, conversionError }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -78,11 +79,19 @@ const Thumbnail: React.FC<ThumbnailProps> = ({ src, type, altText, conversionSta
             )}
 
             {isFailed && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-black bg-opacity-50">
-                <svg className="h-8 w-8 text-red-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-black bg-opacity-50 px-2"
+                title={conversionError ?? 'Conversion failed — check backend logs'}
+              >
+                <svg className="h-8 w-8 text-red-400 mb-1 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-red-300 text-xs font-semibold">Conversion failed</span>
+                <span className="text-red-300 text-xs font-semibold text-center">Conversion failed</span>
+                {conversionError && (
+                  <span className="mt-1 text-red-200 text-[10px] text-center line-clamp-3 leading-tight">
+                    {conversionError}
+                  </span>
+                )}
               </div>
             )}
           </div>

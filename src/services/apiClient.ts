@@ -39,6 +39,8 @@ export interface ApiMediaFile {
   uploaded_by_user_id?: string | null;
   /** Point clouds only: pending | processing | ready | failed */
   conversion_status?: string | null;
+  /** Point clouds only: error detail when conversion_status === 'failed' */
+  conversion_error?: string | null;
 }
 
 export interface ApiRoomMediaGroup {
