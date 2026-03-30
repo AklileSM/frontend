@@ -27,16 +27,10 @@ const PCDViewer = () => {
   };
   
   let formattedDate: string;
-
   try {
     formattedDate = extractDateFromPath(modelUrl);
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error("Error extracting date:", error.message);
-    } else {
-      console.error("An unknown error occurred:", error);
-    }
-    formattedDate = "Unknown Date"; // Fallback if date extraction fails
+  } catch {
+    formattedDate = "Unknown Date";
   }
   
   let roomNumber = "Unknown Room";
