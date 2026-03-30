@@ -60,9 +60,21 @@
 		const _params = new URLSearchParams(window.location.search);
 		const pointcloudUrl = _params.get("url") || "../PCD/potree/metadata.json";
 		
+		console.log("[PCD] loading:", pointcloudUrl);
+
 		Potree.loadPointCloud(pointcloudUrl, "scan", e => {
+			console.log("[PCD] callback fired, e =", e);
+
+			if (!e || !e.pointcloud) {
+				console.error("[PCD] load failed — e.pointcloud is missing", e);
+				return;
+			}
+
 			let scene = viewer.scene;
 			let pointcloud = e.pointcloud;
+
+			console.log("[PCD] boundingBox:", pointcloud.boundingBox);
+			console.log("[PCD] numPoints:", pointcloud.numPoints ?? "(unavailable)");
 			
 			let material = pointcloud.material;
 			material.size = 1;
@@ -70,7 +82,11 @@
 			material.shape = Potree.PointShape.SQUARE;
 			
 			scene.addPointCloud(pointcloud);
-			viewer.fitToScreen();
+
+			// fitToScreen uses the bounding sphere — call it after a short delay
+			// to ensure Three.js has had a render cycle to compute the geometry.
+			viewer.fitToScreen(0.6);
+			setTimeout(() => viewer.fitToScreen(0.6), 500);
 		});
 
 	</script>
