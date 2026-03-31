@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -173,6 +174,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const allRoomNames = Object.keys(thumbnailsForSelectedDate).sort();
   const visibleRooms = allRoomNames.filter((r) => !hiddenRooms.has(r));
+
+  const selectAllRooms = () => setHiddenRooms(new Set());
+  const clearAllRooms = () => setHiddenRooms(new Set(allRoomNames));
 
   const calculateFileCounts = () => {
     let imageCount = 0;
@@ -421,16 +425,31 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     <>
       <Breadcrumb pageName={breadcrumbLabel} />
       <div className="w-full bg-white rounded-md shadow-default dark:bg-boxdark dark:text-white">
-        <div className="p-4 border-b border-gray-300 dark:border-strokedark">
-          {projectLabel ? (
-            <p className="text-sm font-medium text-bodydark dark:text-gray-400 mb-1">{projectLabel}</p>
-          ) : null}
-          <h1 className="text-xl font-bold text-black dark:text-white">
-            Selected Date: <span className="font-semibold">{selectedDate || 'None'}</span>
-          </h1>
-          <p className="text-sm text-black dark:text-gray-400 mt-2">
-            Images ({imageCount}), Videos ({videoCount}), Pointcloud data ({pointcloudCount}), PDFs ({pdfCount})
-          </p>
+        <div className="flex items-start justify-between gap-4 p-4 border-b border-gray-300 dark:border-strokedark">
+          <div className="min-w-0">
+            {projectLabel ? (
+              <p className="text-sm font-medium text-bodydark dark:text-gray-400 mb-1">{projectLabel}</p>
+            ) : null}
+            <h1 className="text-xl font-bold text-black dark:text-white">
+              Selected Date: <span className="font-semibold">{selectedDate || 'None'}</span>
+            </h1>
+            <p className="text-sm text-black dark:text-gray-400 mt-2">
+              Images ({imageCount}), Videos ({videoCount}), Pointcloud data ({pointcloudCount}), PDFs ({pdfCount})
+            </p>
+          </div>
+          {allRoomNames.length > 1 && (
+            <div className="flex shrink-0 items-center gap-2 pt-1">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Rooms:</span>
+              <CheckboxDropdown
+                label="Rooms"
+                options={allRoomNames}
+                hidden={hiddenRooms}
+                onToggle={toggleRoomFilter}
+                onSelectAll={selectAllRooms}
+                onClearAll={clearAllRooms}
+              />
+            </div>
+          )}
         </div>
 
         {selectedDate && canUpload && (activeTab === 'images' || activeTab === 'pdfs' || activeTab === 'pointclouds') && (
@@ -502,37 +521,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
           </div>
         )}
 
-        {allRoomNames.length > 1 && (
-          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/20">
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">Rooms:</span>
-            {allRoomNames.map((name) => {
-              const active = !hiddenRooms.has(name);
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => toggleRoomFilter(name)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ${
-                    active
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  {name}
-                </button>
-              );
-            })}
-            {hiddenRooms.size > 0 && (
-              <button
-                type="button"
-                onClick={() => setHiddenRooms(new Set())}
-                className="ml-auto text-xs text-primary hover:underline"
-              >
-                Show all
-              </button>
-            )}
-          </div>
-        )}
 
         <div className="flex border-b border-gray-300 dark:border-strokedark">
           <button

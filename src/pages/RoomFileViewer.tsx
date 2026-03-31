@@ -4,6 +4,7 @@ import Thumbnail from '../components/Thumbnail';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ApiMediaFile, ApiRoomMediaGroup, getExplorerByRoom, listRooms } from '../services/apiClient';
+import CheckboxDropdown from '../components/CheckboxDropdown';
 import {
   normalizeRoomSlug,
   readStoredA6Room,
@@ -144,6 +145,9 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
   const allDates = Object.keys(roomData).sort();
   const visibleDates = allDates.filter((d) => !hiddenDates.has(d));
 
+  const selectAllDates = () => setHiddenDates(new Set());
+  const clearAllDates = () => setHiddenDates(new Set(allDates));
+
   const renderThumbnails = (thumbnails: ApiMediaFile[]) => {
     return thumbnails.map((thumbnail, index) => {
       const fileName = thumbnail.file_name;
@@ -249,50 +253,32 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
     <>
       <Breadcrumb pageName={`${room.charAt(0).toUpperCase()}${room.slice(1).replace(/([a-zA-Z]+)(\d+)/, '$1 $2')}`} />
       <div className="w-full bg-white rounded-md shadow-default dark:bg-boxdark dark:text-white">
-        <div className="p-4 border-b border-gray-300 dark:border-strokedark">
-          <h1 className="text-xl font-bold text-black dark:text-white">
-            {`${roomName || room.charAt(0).toUpperCase()}${roomName ? '' : room.slice(1).replace(/([a-zA-Z]+)(\d+)/, '$1 $2')} Files`}
-          </h1>
-  
-          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex flex-wrap gap-x-1">
-            <p>Images ({totalImageCount}),</p>
-            <p>Videos ({totalVideoCount}),</p>
-            <p>Pointcloud Data ({totalPointcloudCount}),</p>
-            <p>PDFs ({totalPdfCount})</p>
+        <div className="flex items-start justify-between gap-4 p-4 border-b border-gray-300 dark:border-strokedark">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-black dark:text-white">
+              {`${roomName || room.charAt(0).toUpperCase()}${roomName ? '' : room.slice(1).replace(/([a-zA-Z]+)(\d+)/, '$1 $2')} Files`}
+            </h1>
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex flex-wrap gap-x-1">
+              <p>Images ({totalImageCount}),</p>
+              <p>Videos ({totalVideoCount}),</p>
+              <p>Pointcloud Data ({totalPointcloudCount}),</p>
+              <p>PDFs ({totalPdfCount})</p>
+            </div>
           </div>
+          {allDates.length > 1 && (
+            <div className="flex shrink-0 items-center gap-2 pt-1">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Dates:</span>
+              <CheckboxDropdown
+                label="Dates"
+                options={allDates}
+                hidden={hiddenDates}
+                onToggle={toggleDateFilter}
+                onSelectAll={selectAllDates}
+                onClearAll={clearAllDates}
+              />
+            </div>
+          )}
         </div>
-  
-        {allDates.length > 1 && (
-          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/20">
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">Dates:</span>
-            {allDates.map((date) => {
-              const active = !hiddenDates.has(date);
-              return (
-                <button
-                  key={date}
-                  type="button"
-                  onClick={() => toggleDateFilter(date)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ${
-                    active
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  {date}
-                </button>
-              );
-            })}
-            {hiddenDates.size > 0 && (
-              <button
-                type="button"
-                onClick={() => setHiddenDates(new Set())}
-                className="ml-auto text-xs text-primary hover:underline"
-              >
-                Show all
-              </button>
-            )}
-          </div>
-        )}
 
         <div className="flex border-b border-gray-300 dark:border-strokedark">
           <button
