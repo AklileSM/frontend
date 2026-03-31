@@ -17,6 +17,7 @@ interface RoomFileViewerProps {
 const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedDates, setCollapsedDates] = useState<{ [date: string]: boolean }>({});
+  const [hiddenDates, setHiddenDates] = useState<Set<string>>(new Set());
   const [roomData, setRoomData] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [roomName, setRoomName] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -130,6 +131,18 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
       [date]: !prevState[date],
     }));
   };
+
+  const toggleDateFilter = (date: string) => {
+    setHiddenDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const allDates = Object.keys(roomData).sort();
+  const visibleDates = allDates.filter((d) => !hiddenDates.has(d));
 
   const renderThumbnails = (thumbnails: ApiMediaFile[]) => {
     return thumbnails.map((thumbnail, index) => {
@@ -249,6 +262,38 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
           </div>
         </div>
   
+        {allDates.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/20">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">Dates:</span>
+            {allDates.map((date) => {
+              const active = !hiddenDates.has(date);
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => toggleDateFilter(date)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ${
+                    active
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  {date}
+                </button>
+              );
+            })}
+            {hiddenDates.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setHiddenDates(new Set())}
+                className="ml-auto text-xs text-primary hover:underline"
+              >
+                Show all
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex border-b border-gray-300 dark:border-strokedark">
           <button
             className={`flex-1 px-4 py-2 text-sm font-medium ${activeTab === 'images' ? 'border-b-2 border-primary text-primary dark:text-white' : 'text-bodydark1 dark:text-gray-300 hover:text-primary'}`}
@@ -282,7 +327,9 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
           ) : error ? (
             <p className="text-center text-red-500">{error}</p>
           ) : (
-          Object.keys(roomData).map((date) => {
+          visibleDates.length === 0 && !loading && !error ? (
+            <p className="text-center text-bodydark dark:text-gray-400">No dates selected — use the filter above to show dates.</p>
+          ) : visibleDates.map((date) => {
             const files = roomData[date][activeTab] || [];
             return (
               <div key={date}>
@@ -333,7 +380,7 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
                 </div>
               </div>
             );
-          }))}
+          })}
         </div>
       </div>
     </>

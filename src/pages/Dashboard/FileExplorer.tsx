@@ -31,6 +31,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const canUpload = user?.role === 'admin';
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
+  const [hiddenRooms, setHiddenRooms] = useState<Set<string>>(new Set());
   const [roomsForDate, setRoomsForDate] = useState<Record<string, ApiRoomMediaGroup>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +161,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
       [room]: !prevState[room],
     }));
   };
+
+  const toggleRoomFilter = (roomName: string) => {
+    setHiddenRooms((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomName)) next.delete(roomName);
+      else next.add(roomName);
+      return next;
+    });
+  };
+
+  const allRoomNames = Object.keys(thumbnailsForSelectedDate).sort();
+  const visibleRooms = allRoomNames.filter((r) => !hiddenRooms.has(r));
 
   const calculateFileCounts = () => {
     let imageCount = 0;
@@ -342,11 +355,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
       return <p className="text-center text-red-500">{error}</p>;
     }
 
-    if (Object.keys(thumbnailsForSelectedDate).length === 0) {
+    if (allRoomNames.length === 0) {
       return <p className="text-center text-bodydark dark:text-gray-400">No files available</p>;
     }
 
-    return Object.entries(thumbnailsForSelectedDate).map(([room, media]) => (
+    return visibleRooms.map((room) => {
+      const media = thumbnailsForSelectedDate[room]!;
+      return (
       <div key={room} className="mb-4">
         <div
           onClick={() => toggleRoomCollapse(room)}
@@ -393,7 +408,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
           )}
         </div>
       </div>
-    ));
+    );
+    });
   };
 
   const breadcrumbLabel =
@@ -483,6 +499,38 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
             )}
             {uploadError && <p className="mt-2 text-sm text-red-500">{uploadError}</p>}
             {uploadOk && <p className="mt-2 text-sm text-green-600 dark:text-green-400">{uploadOk}</p>}
+          </div>
+        )}
+
+        {allRoomNames.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-300 dark:border-strokedark bg-gray-50 dark:bg-meta-4/20">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">Rooms:</span>
+            {allRoomNames.map((name) => {
+              const active = !hiddenRooms.has(name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => toggleRoomFilter(name)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ${
+                    active
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  {name}
+                </button>
+              );
+            })}
+            {hiddenRooms.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setHiddenRooms(new Set())}
+                className="ml-auto text-xs text-primary hover:underline"
+              >
+                Show all
+              </button>
+            )}
           </div>
         )}
 
