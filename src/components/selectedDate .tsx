@@ -3,6 +3,23 @@ import React, { createContext, useCallback, useContext, useMemo, useState, React
 /** Scope keys match `filterProjectSlug` in FileExplorer (`a6-stern`, `projectx`, `projecty`). */
 export const EXPLORER_DATE_SCOPE_A6 = 'a6-stern';
 
+const DATE_STORAGE_PREFIX = 'a6.explorerDate.';
+
+function readStoredDates(): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(DATE_STORAGE_PREFIX)) {
+        const scope = key.slice(DATE_STORAGE_PREFIX.length);
+        const val = localStorage.getItem(key);
+        if (val) result[scope] = val;
+      }
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
 interface SelectedDateContextProps {
   /** Selected date for A6 date-based explorer (sidebar calendar / legacy). */
   selectedDate: string | null;
@@ -14,12 +31,16 @@ interface SelectedDateContextProps {
 const SelectedDateContext = createContext<SelectedDateContextProps | undefined>(undefined);
 
 export const SelectedDateProvider = ({ children }: { children: ReactNode }) => {
-  const [datesByScope, setDatesByScope] = useState<Record<string, string | null>>({});
+  const [datesByScope, setDatesByScope] = useState<Record<string, string | null>>(readStoredDates);
 
   const getDateForScope = useCallback((scope: string) => datesByScope[scope] ?? null, [datesByScope]);
 
   const setDateForScope = useCallback((scope: string, date: string | null) => {
     setDatesByScope((prev) => ({ ...prev, [scope]: date }));
+    try {
+      if (date) localStorage.setItem(`${DATE_STORAGE_PREFIX}${scope}`, date);
+      else localStorage.removeItem(`${DATE_STORAGE_PREFIX}${scope}`);
+    } catch { /* ignore */ }
   }, []);
 
   const selectedDate = datesByScope[EXPLORER_DATE_SCOPE_A6] ?? null;
