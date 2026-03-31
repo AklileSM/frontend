@@ -38,10 +38,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const navigate = useNavigate();
 
   const [roomOptions, setRoomOptions] = useState<ApiRoom[]>([]);
-  const [roomSlug, setRoomSlug] = useState(() => {
-    try { return localStorage.getItem(`a6.explorerRoom.${filterProjectSlug ?? EXPLORER_DATE_SCOPE_A6}`) ?? ''; }
-    catch { return ''; }
-  });
+  const [roomSlug, setRoomSlug] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -51,12 +48,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filePendingDelete, setFilePendingDelete] = useState<ApiMediaFile | null>(null);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!roomSlug) return;
-    try { localStorage.setItem(`a6.explorerRoom.${dateScope}`, roomSlug); }
-    catch { /* ignore */ }
-  }, [roomSlug, dateScope]);
 
   useEffect(() => {
     setFile(null);
