@@ -28,7 +28,9 @@
 	<script src="./libs/i18next/i18next.js"></script>
 	<script src="./libs/jstree/jstree.js"></script>
 	<script src="./build/potree/potree.js"></script>
-	<script src="./libs/plasio/js/laslaz.js"></script>
+	<!-- laslaz.js omitted: only needed for raw LAS/LAZ drag-drop; our pipeline
+	     serves pre-converted Potree octree files. Keeping it caused a duplicate
+	     Three.js import that corrupted the render loop. -->
 	
 	<!-- INCLUDE ADDITIONAL DEPENDENCIES HERE -->
 	<!-- INCLUDE SETTINGS HERE -->
@@ -77,9 +79,9 @@
 			console.log("[PCD] numPoints:", pointcloud.numPoints ?? "(unavailable)");
 			
 			let material = pointcloud.material;
-			material.size = 1;
-			material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
-			material.shape = Potree.PointShape.SQUARE;
+			material.size = 1;                                   // 1 pixel per point
+			material.pointSizeType = Potree.PointSizeType.FIXED; // pixel size, not world-space adaptive
+			material.shape = Potree.PointShape.CIRCLE;           // round points look cleaner
 			
 			scene.addPointCloud(pointcloud);
 
