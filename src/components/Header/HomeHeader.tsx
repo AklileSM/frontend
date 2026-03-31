@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeaderProfileMenu from './HeaderProfileMenu';
-import DarkModeSwitcher from './DarkModeSwitcher';
 import {
   FALLBACK_PROJECT_NAV,
   mergeProjectNav,
@@ -58,7 +57,7 @@ const HomeHeader = ({ selectedSlug, onProjectChange }: HomeHeaderProps) => {
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup="listbox"
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1
+              className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1
                 ${open
                   ? 'border-primary bg-primary text-white'
                   : 'border-stroke bg-white text-black hover:border-primary hover:text-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:border-primary dark:hover:text-primary'
@@ -113,7 +112,6 @@ const HomeHeader = ({ selectedSlug, onProjectChange }: HomeHeaderProps) => {
             )}
           </div>
 
-          <DarkModeSwitcher />
           <HeaderProfileMenu />
         </div>
       </div>

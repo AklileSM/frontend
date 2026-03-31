@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import DarkModeSwitcher from './DarkModeSwitcher';
 import HeaderProfileMenu from './HeaderProfileMenu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -70,7 +69,7 @@ const Header = () => {
               onClick={() => setProjectDropOpen((v) => !v)}
               aria-expanded={projectDropOpen}
               aria-haspopup="listbox"
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1
+              className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1
                 ${projectDropOpen
                   ? 'border-primary bg-primary text-white'
                   : 'border-stroke bg-white text-black hover:border-primary hover:text-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:border-primary dark:hover:text-primary'
@@ -131,33 +130,18 @@ const Header = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 2xsm:gap-7">
-          <ul className="flex items-center gap-2 2xsm:gap-4">
-            <button
-              className="mr-5 inline-flex items-center justify-center rounded-md bg-primary py-3 px-10 text-center font-medium text-white hover:scale-105 lg:px-8 xl:px-10"
-              onClick={navigateHomeModal}
-            >
-              {isComparePage ? 'Home' : 'Compare'}
-            </button>
+        <div className="flex items-center gap-4">
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-primary py-2.5 px-6 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+            onClick={navigateHomeModal}
+          >
+            {isComparePage ? 'Home' : 'Compare'}
+          </button>
 
-            {/* <!-- Dark Mode Toggler --> */}
-            <DarkModeSwitcher />
-            {/* <!-- Dark Mode Toggler --> */}
-
+          <div className="flex items-center gap-3">
             <HeaderProfileMenu />
 
-            {/* <!-- Notification Menu Area --> */}
-            {/* <DropdownNotification /> */}
-            {/* <!-- Notification Menu Area --> */}
-
-            {/* <!-- Chat Notification Area --> */}
-            {/* <DropdownMessage /> */}
-            {/* <!-- Chat Notification Area --> */}
-          </ul>
-
-          {/* <!-- User Area --> */}
-          {/* <DropdownUser /> */}
-          {/* <!-- User Area --> */}
+          </div>
         </div>
       </div>
       
