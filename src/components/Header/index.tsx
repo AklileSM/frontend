@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DarkModeSwitcher from './DarkModeSwitcher';
 import HeaderProfileMenu from './HeaderProfileMenu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -15,6 +15,18 @@ const Header = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
+  const [projectDropOpen, setProjectDropOpen] = useState(false);
+  const projectDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (projectDropRef.current && !projectDropRef.current.contains(e.target as Node)) {
+        setProjectDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     listProjects()
@@ -50,28 +62,73 @@ const Header = () => {
           >
             Projects
           </Link>
-          <label htmlFor="header-project-select" className="sr-only">
-            Current project
-          </label>
-          <select
-            id="header-project-select"
-            className="rounded-md border border-stroke bg-white px-2 py-1.5 text-sm font-medium text-black focus:border-primary focus:outline-none dark:border-strokedark dark:bg-boxdark dark:text-white"
-            value={selectedPath}
-            onChange={(e) => {
-              const path = e.target.value;
-              if (path === '/A6_Stern') {
-                navigate('/RoomExplorer', { state: { room: readStoredA6Room() } });
-                return;
-              }
-              navigate(path);
-            }}
-          >
-            {navProjects.map((p) => (
-              <option key={p.slug} value={p.path}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+
+          {/* Custom project switcher */}
+          <div ref={projectDropRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setProjectDropOpen((v) => !v)}
+              aria-expanded={projectDropOpen}
+              aria-haspopup="listbox"
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1
+                ${projectDropOpen
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-stroke bg-white text-black hover:border-primary hover:text-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:border-primary dark:hover:text-primary'
+                }`}
+            >
+              {/* Folder icon */}
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+              </svg>
+              <span>{navProjects.find((p) => p.path === selectedPath)?.name ?? 'Project'}</span>
+              <svg
+                className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${projectDropOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {projectDropOpen && (
+              <div className="absolute left-0 top-full z-[9999] mt-2 w-48 overflow-hidden rounded-xl border border-stroke bg-white shadow-xl dark:border-strokedark dark:bg-gray-800">
+                <div className="border-b border-stroke dark:border-strokedark px-3 py-2 bg-gray-50 dark:bg-meta-4/40">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Switch project</p>
+                </div>
+                {navProjects.map((p) => {
+                  const isActive = p.path === selectedPath;
+                  return (
+                    <button
+                      key={p.slug}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => {
+                        setProjectDropOpen(false);
+                        if (p.path === '/A6_Stern') {
+                          navigate('/RoomExplorer', { state: { room: readStoredA6Room() } });
+                        } else {
+                          navigate(p.path);
+                        }
+                      }}
+                      className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors text-left
+                        ${isActive
+                          ? 'bg-primary/5 text-primary dark:bg-primary/10 dark:text-primary'
+                          : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-meta-4'
+                        }`}
+                    >
+                      <span className={`h-2 w-2 shrink-0 rounded-full transition-colors ${isActive ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                      {p.name}
+                      {isActive && (
+                        <svg className="ml-auto h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-3 2xsm:gap-7">
