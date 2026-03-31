@@ -59,7 +59,7 @@ const Header = () => {
             to="/"
             className="text-title-md font-semibold text-black hover:opacity-90 dark:text-white"
           >
-            Projects
+            Home
           </Link>
 
           {/* Custom project switcher */}

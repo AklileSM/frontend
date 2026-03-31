@@ -3,7 +3,7 @@ import HomeCalendar from './HomeCalendar';
 import ChartAll from '../components/Charts/Overview of data collected/ChartAll';
 import ChartLocation from '../components/Charts/Overview of data collected per location/ChartLocation';
 import HomeHeader from '../components/Header/HomeHeader';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
 // Skeleton helpers
@@ -151,14 +151,6 @@ const HomePage: React.FC = () => {
               ? 'Hover over a room to display associated data dynamically in the data overview. Click on a room to navigate to a detailed explorer page for that room. Use the calendar to view specific data by date, or toggle between the data overview and the calendar.'
               : 'Select a room from the floor plan to explore captured data. No rooms or uploads have been configured for this project yet.'}
           </p>
-
-          <div className="relative z-10">
-            <Link to="/A6_stern">
-              <button className="bg-primary text-white font-semibold ml-3 py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:scale-105 mb-6">
-                Projects
-              </button>
-            </Link>
-          </div>
 
           {/* Floor plan / placeholder */}
           <div className="relative p-4 dark:bg-gray-700 rounded-lg shadow-lg max-w-7xl max-h-[80vh] mb-12 mt-3">
