@@ -250,7 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                                       <FileTree />
                                     ) : (
                                       <p className="px-2 py-2 text-xs text-gray-400">
-                                        Empty project — no rooms or files yet.
+                                        No rooms or files yet.
                                       </p>
                                     )}
                                   </div>
