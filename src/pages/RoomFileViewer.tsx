@@ -326,61 +326,61 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
             <p className="text-center text-bodydark dark:text-gray-400">Loading room files...</p>
           ) : error ? (
             <p className="text-center text-red-500">{error}</p>
+          ) : visibleDates.length === 0 ? (
+            <p className="text-center text-bodydark dark:text-gray-400">
+              No dates selected — use the filter above to show dates.
+            </p>
           ) : (
-          visibleDates.length === 0 && !loading && !error ? (
-            <p className="text-center text-bodydark dark:text-gray-400">No dates selected — use the filter above to show dates.</p>
-          ) : visibleDates.map((date) => {
-            const files = roomData[date][activeTab] || [];
-            return (
-              <div key={date}>
-                {/* Collapsible Header */}
-                <div
-                  onClick={() => toggleCollapse(date)}
-                  className="flex items-center cursor-pointer bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-md shadow hover:shadow-lg transition duration-200 ease-in-out"
-                >
-                  <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 flex-grow">
-                    {date}
-                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">({files.length})</span>
-                  </h3>
-                  <svg
-                    className={`transition-transform duration-200 transform ${collapsedDates[date] ? '' : 'rotate-90'}`}
-                    width="16"
-                    height="16"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
+            visibleDates.map((date) => {
+              const files = roomData[date]?.[activeTab] || [];
+              return (
+                <div key={date}>
+                  <div
+                    onClick={() => toggleCollapse(date)}
+                    className="flex items-center cursor-pointer bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-md shadow hover:shadow-lg transition duration-200 ease-in-out"
                   >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M4.41107 6.9107C4.73651 6.58527 5.26414 6.58527 5.58958 6.9107L10.0003 11.3214L14.4111 6.91071C14.7365 6.58527 15.2641 6.58527 15.5896 6.91071C15.915 7.23614 15.915 7.76378 15.5896 8.08922L10.5896 13.0892C10.2641 13.4147 9.73651 13.4147 9.41107 13.0892L4.41107 8.08922C4.08563 7.76378 4.08563 7.23614 4.41107 6.9107Z"
+                    <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 flex-grow">
+                      {date}
+                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">({files.length})</span>
+                    </h3>
+                    <svg
+                      className={`transition-transform duration-200 transform ${collapsedDates[date] ? '' : 'rotate-90'}`}
+                      width="16"
+                      height="16"
+                      viewBox="0 0 20 20"
                       fill="currentColor"
-                    />
-                  </svg>
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M4.41107 6.9107C4.73651 6.58527 5.26414 6.58527 5.58958 6.9107L10.0003 11.3214L14.4111 6.91071C14.7365 6.58527 15.2641 6.58527 15.5896 6.91071C15.915 7.23614 15.915 7.76378 15.5896 8.08922L10.5896 13.0892C10.2641 13.4147 9.73651 13.4147 9.41107 13.0892L4.41107 8.08922C4.08563 7.76378 4.08563 7.23614 4.41107 6.9107Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <div
+                    style={{
+                      maxHeight: collapsedDates[date] ? '0px' : '500px',
+                      opacity: collapsedDates[date] ? 0 : 1,
+                      overflow: 'hidden',
+                      transition: 'max-height 0.3s ease, opacity 0.3s ease',
+                    }}
+                  >
+                    {files.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-4 mt-2">
+                        {renderThumbnails(files)}
+                      </div>
+                    ) : (
+                      <p className="text-center text-bodydark dark:text-gray-400 mt-2">
+                        No {activeTab} available for this date
+                      </p>
+                    )}
+                  </div>
                 </div>
-  
-                {/* Animated Collapsible Content */}
-                <div
-                  style={{
-                    maxHeight: collapsedDates[date] ? '0px' : '500px',
-                    opacity: collapsedDates[date] ? 0 : 1,
-                    overflow: 'hidden',
-                    transition: 'max-height 0.3s ease, opacity 0.3s ease',
-                  }}
-                >
-                  {files.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-4 mt-2">
-                      {renderThumbnails(files)}
-                    </div>
-                  ) : (
-                    <p className="text-center text-bodydark dark:text-gray-400 mt-2">
-                      No {activeTab} available for this date
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </>
