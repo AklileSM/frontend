@@ -16,6 +16,7 @@ function openMedia(
   navigate: ReturnType<typeof useNavigate>,
   file: ApiMediaFile,
   roomDisplayName: string,
+  roomSlug: string,
 ): void {
   const url = file.full_src || file.src;
   if (file.type === 'image') {
@@ -29,8 +30,15 @@ function openMedia(
       },
     });
   } else if (file.type === 'pointcloud') {
-    navigate('/PCD', {
-      state: { modelUrl: url, fileId: file.id },
+    navigate('/staticPointCloudViewer', {
+      state: {
+        modelUrl: url,
+        fileId: file.id,
+        displayFileName: file.file_name,
+        roomLabel: roomDisplayName,
+        captureDate: file.capture_date,
+        room: roomSlug,
+      },
     });
   } else if (file.type === 'video') {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -121,10 +129,10 @@ const FileTree: React.FC = () => {
           )}
 
           {!loading &&
-            entries.map(({ name: room, dates }) => {
+            entries.map(({ slug, name: room, dates }) => {
               const sortedDates = Object.keys(dates).sort();
               return (
-                <div key={room} className="mb-2">
+                <div key={slug} className="mb-2">
                   <div
                     className={`flex items-center text-sm transition-colors duration-200 pl-4 ${
                       activeItem === room ? 'text-primary' : 'text-white hover:text-primary'
@@ -240,7 +248,7 @@ const FileTree: React.FC = () => {
                                                 }`}
                                                 onClick={() => {
                                                   setActiveItem(file.id);
-                                                  openMedia(navigate, file, room);
+                                                  openMedia(navigate, file, room, slug);
                                                 }}
                                               >
                                                 <svg

@@ -13,8 +13,8 @@ import Aframe_IntViewer from './components/Aframe_IntViewer';
 import RoomFileViewer from './pages/RoomFileViewer';
 import StaticViewerRoom from './components/staticViewerRoom';
 import InteractiveViewerRoom from './components/interactiveViewerRoom';
-import PCDViewer from './components/PCDViewer';
 import PotreeViewer from './components/PotreeViewer';
+import StaticPointCloudViewer from './components/StaticPointCloudViewer';
 import HomePage from './pages/HomePage';
 
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -100,7 +100,14 @@ function App() {
                   <Route path="/Compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
                   <Route path="/PCDViewer" element={<ProtectedRoute><Aframe_IntViewer /></ProtectedRoute>} />
                   <Route path="/RoomExplorer" element={<ProtectedRoute><RoomFileViewer room={''} /></ProtectedRoute>} />
-                  <Route path="/PCD" element={<ProtectedRoute><PCDViewer /></ProtectedRoute>} />
+                  <Route
+                    path="/staticPointCloudViewer"
+                    element={
+                      <ProtectedRoute>
+                        <StaticPointCloudViewer />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/pdfViewer" element={<ProtectedRoute><PdfViewerPage /></ProtectedRoute>} />

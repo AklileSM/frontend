@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Potree mirror includes Cesium with an embedded Mapbox token; GitHub push protection blocks it. Our viewer does not load Cesium.
+public/potree/libs/Cesium/

@@ -305,8 +305,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                     },
                   });
                 } else if (thumbnail.type === 'pointcloud') {
-                  navigate('/PCD', {
-                    state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id },
+                  navigate('/staticPointCloudViewer', {
+                    state: {
+                      modelUrl: thumbnail.full_src || thumbnail.src,
+                      fileId: thumbnail.id,
+                      displayFileName: thumbnail.file_name,
+                      roomLabel: roomDisplayName,
+                      captureDate: thumbnail.capture_date,
+                    },
                   });
                 } else if (thumbnail.type === 'pdf') {
                   navigate('/pdfViewer', {

@@ -12,7 +12,7 @@ import {
   type ApiReport,
 } from '../services/apiClient';
 
-/** Same navigation contract as FileExplorer → StaticViewer / PCD. */
+/** Same navigation contract as FileExplorer → StaticViewer / staticPointCloudViewer. */
 function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpload): void {
   const url = u.full_src ?? u.src;
   if (!url) return;
@@ -39,7 +39,19 @@ function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpl
   }
 
   if (u.media_type === 'pointcloud') {
-    navigate('/PCD', { state: { modelUrl: url, fileId: u.id } });
+    const cap =
+      typeof u.capture_date === 'string' && u.capture_date.length >= 10
+        ? u.capture_date.slice(0, 10)
+        : u.capture_date;
+    navigate('/staticPointCloudViewer', {
+      state: {
+        modelUrl: url,
+        fileId: u.id,
+        displayFileName: u.file_name,
+        roomLabel: u.room_name,
+        captureDate: cap,
+      },
+    });
     return;
   }
 

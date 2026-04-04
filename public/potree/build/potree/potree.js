@@ -80484,7 +80484,7 @@ ENDSEC
 			sldPointBudget.slider({
 				value: this.viewer.getPointBudget(),
 				min: 100 * 1000,
-				max: 100 * 1000 * 1000,
+				max: 10 * 1000 * 1000,
 				step: 1000,
 				slide: (event, ui) => { this.viewer.setPointBudget(ui.value); }
 			});
@@ -88273,10 +88273,10 @@ ENDSEC
 				this.setEDLOpacity(1.0);
 				this.setClipTask(ClipTask.HIGHLIGHT);
 				this.setClipMethod(ClipMethod.INSIDE_ANY);
-				this.setPointBudget(10*1000*1000);
+				this.setPointBudget(1*1000*1000);
 				this.setShowBoundingBox(false);
 				this.setFreeze(false);
-				this.setControls(this.fpControls);
+				this.setControls(this.orbitControls);
 				this.setBackground('gradient');
 
 				this.scaleFactor = 1;

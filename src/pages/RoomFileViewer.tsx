@@ -169,7 +169,16 @@ const RoomFileViewer: React.FC<RoomFileViewerProps> = ({ }) => {
                 },
               });
             } else if (thumbnail.type === 'pointcloud') {
-              navigate('/PCD', { state: { modelUrl: thumbnail.full_src || thumbnail.src, fileId: thumbnail.id } });
+              navigate('/staticPointCloudViewer', {
+                state: {
+                  modelUrl: thumbnail.full_src || thumbnail.src,
+                  fileId: thumbnail.id,
+                  displayFileName: thumbnail.file_name,
+                  roomLabel: roomName || room,
+                  captureDate: thumbnail.capture_date,
+                  room,
+                },
+              });
             } else if (thumbnail.type === 'pdf') {
               navigate('/pdfViewer', {
                 state: {
