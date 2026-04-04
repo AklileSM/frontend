@@ -37,14 +37,21 @@
 
 		viewer.setEDLEnabled(false);
 		viewer.setFOV(60);
-		viewer.setPointBudget(65_000_000);
 		viewer.loadSettingsFromURL();
-		viewer.setBackground("skybox");
+		// After URL params — so script defaults win unless you pass ?pointBudget=…
+		viewer.setPointBudget(85_000_000);
+		// "Appearance → Box" draws octree cells as big cubes; turn off for normal points.
+		viewer.setShowBoundingBox(false);
+		viewer.setBackground("gradient");
+		// Smaller value → refine to finer nodes sooner (pixels on screen).
+		viewer.setMinNodeSize(10);
 
 		viewer.loadGUI(() => {
 			viewer.setLanguage('en');
 			$("#menu_tools").next().show();
 			$("#menu_clipping").next().show();
+			$("#show_bounding_box").prop("checked", false);
+			viewer.setShowBoundingBox(false);
 			viewer.toggleSidebar();
 		});
 
@@ -60,7 +67,9 @@
 				material.size = 1;
 				material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
 				material.shape = Potree.PointShape.SQUARE;
+				pointcloud.showBoundingBox = false;
 				scene.addPointCloud(pointcloud);
+				viewer.setShowBoundingBox(false);
 				viewer.fitToScreen();
 			});
 		}
