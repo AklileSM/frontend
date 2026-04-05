@@ -174,7 +174,7 @@ const StaticPointCloudViewer: React.FC = () => {
           <button
             type="button"
             onClick={goBack}
-            className="absolute top-4 left-4 z-10 bg-primary text-white p-3 rounded-full shadow-lg transition-transform duration-300 hover:scale-110"
+            className="absolute top-4 right-4 z-10 bg-primary text-white p-3 rounded-full shadow-lg transition-transform duration-300 hover:scale-110"
             aria-label="Back"
           >
             <svg
