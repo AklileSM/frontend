@@ -39,12 +39,15 @@
 		viewer.setFOV(60);
 		viewer.loadSettingsFromURL();
 		// After URL params — so script defaults win unless you pass ?pointBudget=…
-		viewer.setPointBudget(5_000_000);
+		viewer.setPointBudget(10_000_000);
 		// "Appearance → Box" draws octree cells as big cubes; turn off for normal points.
 		viewer.setShowBoundingBox(false);
 		viewer.setBackground("gradient");
 		// Smaller value → refine to finer nodes sooner (pixels on screen).
-		viewer.setMinNodeSize(10);
+		viewer.setMinNodeSize(1);
+
+		viewer.setEDLRadius(1.0);
+		viewer.setSplatQuality("hq");
 
 		viewer.loadGUI(() => {
 			viewer.setLanguage('en');
