@@ -47,7 +47,8 @@
 		viewer.setMinNodeSize(1);
 
 		viewer.setEDLRadius(1.0);
-		viewer.setSplatQuality("hq");
+		// High splat quality (same as Appearance → Splat Quality → HQ in the sidebar)
+		viewer.useHQ = true;
 
 		viewer.loadGUI(() => {
 			viewer.setLanguage('en');
