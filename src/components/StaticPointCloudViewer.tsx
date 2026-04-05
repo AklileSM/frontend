@@ -144,14 +144,39 @@ const StaticPointCloudViewer: React.FC = () => {
 
   return (
     <div className="w-full max-w-screen-3xl bg-white rounded-md shadow-default dark:bg-boxdark dark:text-white p-4 mx-auto mt-6">
-      <div className="border-b border-gray-300 dark:border-strokedark pb-4">
-        <h1 className="text-xl font-bold text-black dark:text-white">Point Cloud Viewer</h1>
-        <p className="mt-1 text-sm text-black dark:text-gray-400">
-          Viewing: <span className="font-semibold">{viewingFileName || 'Point cloud'}</span>
-        </p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {roomNumber}, (Date: {formattedDate})
-        </p>
+      <div className="flex justify-between items-center border-b border-gray-300 dark:border-strokedark pb-4">
+        <div>
+          <h1 className="text-xl font-bold text-black dark:text-white">Point Cloud Viewer</h1>
+          <p className="mt-1 text-sm text-black dark:text-gray-400">
+            Viewing: <span className="font-semibold">{viewingFileName || 'Point cloud'}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {roomNumber}, (Date: {formattedDate})
+          </p>
+        </div>
+        <div className="flex space-x-4">
+          <button
+            type="button"
+            onClick={goBack}
+            className="bg-primary text-white font-semibold py-2 px-3 rounded-lg shadow-lg transition-transform duration-300 hover:scale-105 flex items-center justify-center"
+            aria-label="Back"
+          >
+            <svg
+              fill="#ffffff"
+              height="24px"
+              width="24px"
+              viewBox="0 0 288.312 288.312"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M127.353,3.555c-4.704-4.74-12.319-4.74-17.011,0L15.314,99.653 
+                      c-4.74,4.788-4.547,12.884,0.313,17.48l94.715,95.785c4.704,4.74,12.319,4.74,17.011,0
+                      c4.704-4.74,4.704-12.427,0-17.167l-74.444-75.274h199.474v155.804
+                      c0,6.641,5.39,12.03,12.03,12.03c6.641,0,12.03-5.39,12.03-12.03V108.231
+                      c0-6.641-5.39-12.03-12.03-12.03H52.704l74.648-75.49
+                      C132.056,15.982,132.056,8.295,127.353,3.555z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div
@@ -170,28 +195,6 @@ const StaticPointCloudViewer: React.FC = () => {
               No point cloud URL. Open this page from the file explorer.
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={goBack}
-            className="absolute top-4 right-4 z-10 bg-primary text-white p-3 rounded-full shadow-lg transition-transform duration-300 hover:scale-110"
-            aria-label="Back"
-          >
-            <svg
-              fill="#ffffff"
-              height="24px"
-              width="24px"
-              viewBox="0 0 288.312 288.312"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M127.353,3.555c-4.704-4.74-12.319-4.74-17.011,0L15.314,99.653 
-                      c-4.74,4.788-4.547,12.884,0.313,17.48l94.715,95.785c4.704,4.74,12.319,4.74,17.011,0
-                      c4.704-4.74,4.704-12.427,0-17.167l-74.444-75.274h199.474v155.804
-                      c0,6.641,5.39,12.03,12.03,12.03c6.641,0,12.03-5.39,12.03-12.03V108.231
-                      c0-6.641-5.39-12.03-12.03-12.03H52.704l74.648-75.49
-                      C132.056,15.982,132.056,8.295,127.353,3.555z" />
-            </svg>
-          </button>
 
           <button
             type="button"
