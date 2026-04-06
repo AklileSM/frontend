@@ -6,6 +6,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+import { getAccessToken } from '../auth/authSession';
 
 import './pdfViewer.css';
 
@@ -43,6 +44,8 @@ const PdfViewerEmpty: React.FC = () => {
 const PdfViewerWithDocument: React.FC<{ pdfUrl: string; title: string }> = ({ pdfUrl, title }) => {
   const navigate = useNavigate();
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
+  const token = getAccessToken();
+  const httpHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   return (
     <div className="flex w-full flex-col bg-white dark:bg-boxdark">
@@ -73,7 +76,7 @@ const PdfViewerWithDocument: React.FC<{ pdfUrl: string; title: string }> = ({ pd
 
       <div className="pdf-viewer-shell h-[calc(100vh-11rem)] w-full min-h-[480px] border-t border-stroke dark:border-strokedark">
         <Worker workerUrl={workerUrl}>
-          <Viewer fileUrl={pdfUrl} plugins={[defaultLayoutPluginInstance]} />
+          <Viewer fileUrl={pdfUrl} plugins={[defaultLayoutPluginInstance]} httpHeaders={httpHeaders} />
         </Worker>
       </div>
     </div>
