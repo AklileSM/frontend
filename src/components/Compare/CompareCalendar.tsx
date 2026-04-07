@@ -1,110 +1,153 @@
 import React, { useState } from 'react';
-import { isSameDay, isToday, format, eachDayOfInterval, endOfMonth, startOfMonth, addMonths, subMonths, getDay } from 'date-fns';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 interface CompareCalendarProps {
-  availableDates?: string[]; // Optional prop, dates in 'yyyy-MM-dd' format
-  onDateSelect: (date: string) => void; // Function to trigger FileExplorer with the selected date
+  availableDates?: string[];
+  onDateSelect: (date: string) => void;
 }
 
 const CompareCalendar: React.FC<CompareCalendarProps> = ({ availableDates = [], onDateSelect }) => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date()); // Track the month being viewed
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Generate the days for the current month only
-  const startDate = startOfMonth(currentMonth);
-  const endDate = endOfMonth(currentMonth);
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-  // Calculate the number of leading blank days (based on the first day of the month)
-  const leadingBlanks = Array((getDay(startDate) + 6) % 7).fill(null); // Adjust to start on Monday
-
-  // Calculate trailing blanks to complete the last row if needed
-  const totalCells = leadingBlanks.length + days.length;
-  const trailingBlanks = Array((7 - (totalCells % 7)) % 7).fill(null);
-
-  // Day labels for the calendar header, starting on Monday
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  // Check if a date is available (exists in availableDates array)
-  const isAvailableDate = (date: Date) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    return availableDates.includes(formattedDate);
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month + 1, 0).getDate();
   };
 
-  const handleDateClick = (date: Date) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentDate);
+    const firstDayOfMonth =
+      (new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() + 6) % 7;
+    const daysArray = Array(firstDayOfMonth).fill(null);
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      daysArray.push(day);
+    }
+
+    return daysArray;
+  };
+
+  const handleDateClick = (day: number) => {
+    const formattedDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (!availableDates.includes(formattedDate)) return;
     setSelectedDate(formattedDate);
-    onDateSelect(formattedDate); // Call the function to trigger FileExplorer for this date
+    onDateSelect(formattedDate);
   };
 
-  // Handlers for navigating months
-  const goToPreviousMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const handleYearChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentDate(new Date(Number(event.target.value), currentDate.getMonth(), 1));
+  };
+
+  const handleMonthChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentDate(new Date(currentDate.getFullYear(), Number(event.target.value), 1));
+  };
+
+  const yearsRange = Array.from({ length: 21 }, (_, i) => currentDate.getFullYear() - 10 + i);
+  const calendarDays = generateCalendarDays();
 
   return (
-    <div className="calendar-container max-w-sm mx-auto p-4 bg-white dark:bg-boxdark rounded-lg shadow-md">
-      {/* Month Navigation */}
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={goToPreviousMonth}
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition"
-        >
-          <FaChevronLeft size={20} /> {/* Left arrow icon */}
+    <div className="relative w-full max-w-full p-2">
+      <div className="flex justify-between items-center mb-2">
+        <button onClick={handlePrevMonth} className="px-2 py-1 text-primary text-sm">
+          &#8592;
         </button>
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-          {format(currentMonth, 'MMMM yyyy')}
-        </h2>
-        <button
-          onClick={goToNextMonth}
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition"
-        >
-          <FaChevronRight size={20} /> {/* Right arrow icon */}
-        </button>
-      </div>
-
-      {/* Day Labels */}
-      <div className="grid grid-cols-7 gap-2 text-center mb-2">
-        {dayLabels.map((day, index) => (
-          <div key={index} className="text-gray-500 dark:text-gray-400 font-semibold">
-            {day}
-          </div>
-        ))}
-      </div>
-
-      {/* Calendar Days with Leading and Trailing Blanks */}
-      <div className="grid grid-cols-7 gap-2 text-center">
-        {/* Leading Blanks */}
-        {leadingBlanks.map((_, index) => (
-          <div key={`leading-${index}`} className="p-2"></div>
-        ))}
-
-        {/* Actual Days of the Month */}
-        {days.map((day: Date, index: number) => {
-          const isAvailable = isAvailableDate(day);
-          const isSelected = selectedDate && isSameDay(new Date(selectedDate), day);
-          const isTodayDate = isToday(day);
-
-          return (
-            <button
-              key={index}
-              onClick={() => isAvailable && handleDateClick(day)}
-              className={`p-2 rounded-full transition-colors ${
-                isAvailable ? 'text-primary' : 'text-gray-400'
-              } ${isSelected ? 'bg-primary text-white' : ''} ${
-                isTodayDate ? 'border border-primary' : ''
-              } ${!isAvailable ? 'cursor-not-allowed' : 'hover:bg-primary hover:text-white'}`}
-              disabled={!isAvailable} // Disable button if not available
+        <div className="text-sm font-semibold flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-black dark:text-white min-w-0 flex-1 px-1">
+          <div className="relative flex items-center min-w-0">
+            <select
+              value={currentDate.getMonth()}
+              onChange={handleMonthChange}
+              aria-label="Month"
+              className="appearance-none bg-transparent text-black dark:text-white text-sm font-semibold focus:outline-none cursor-pointer pr-6 no-scrollbar max-w-[10rem] truncate"
             >
-              {format(day, 'd')}
-            </button>
-          );
-        })}
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i} className="bg-gray-100 dark:bg-gray-800 text-black dark:text-white">
+                  {new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-primary pointer-events-none">
+              &#8595;
+            </span>
+          </div>
+          <div className="relative flex items-center">
+            <select
+              value={currentDate.getFullYear()}
+              onChange={handleYearChange}
+              aria-label="Year"
+              className="appearance-none bg-transparent text-black dark:text-white text-sm font-semibold focus:outline-none cursor-pointer pr-6 no-scrollbar"
+            >
+              {yearsRange.map((year) => (
+                <option key={year} value={year} className="bg-gray-100 dark:bg-gray-800 text-black dark:text-white">
+                  {year}
+                </option>
+              ))}
+            </select>
+            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-primary pointer-events-none">
+              &#8595;
+            </span>
+          </div>
+        </div>
+        <button onClick={handleNextMonth} className="px-2 py-1 text-primary text-sm">
+          &#8594;
+        </button>
+      </div>
 
-        {/* Trailing Blanks */}
-        {trailingBlanks.map((_, index) => (
-          <div key={`trailing-${index}`} className="p-2"></div>
-        ))}
+      <div className="w-full max-w-full rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="grid grid-cols-7 rounded-t-sm bg-primary text-white">
+              <th>Mon</th>
+              <th>Tue</th>
+              <th>Wed</th>
+              <th>Thu</th>
+              <th>Fri</th>
+              <th>Sat</th>
+              <th>Sun</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: Math.ceil(calendarDays.length / 7) }).map((_, rowIndex) => (
+              <tr key={rowIndex} className="grid grid-cols-7">
+                {calendarDays
+                  .slice(rowIndex * 7, rowIndex * 7 + 7)
+                  .map((day, index) => {
+                    const formattedDate = day
+                      ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                      : '';
+                    const hasData = !!day && availableDates.includes(formattedDate);
+                    const isSelected = !!day && selectedDate === formattedDate;
+
+                    return (
+                      <td
+                        key={index}
+                        className={`ease relative h-20 border border-stroke p-2 transition duration-500 dark:border-strokedark ${
+                          day
+                            ? hasData
+                              ? isSelected
+                                ? 'cursor-pointer bg-primary text-white'
+                                : 'cursor-pointer bg-primary font-medium text-white hover:bg-gray dark:hover:bg-meta-4'
+                              : 'cursor-not-allowed font-medium text-black dark:text-white'
+                            : 'bg-gray-100 dark:bg-meta-4'
+                        }`}
+                        onClick={() => day && hasData && handleDateClick(day)}
+                      >
+                        {day || ''}
+                      </td>
+                    );
+                  })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
