@@ -328,6 +328,51 @@ async function uploadPointcloudInChunks(params: {
   return doneRes.json() as Promise<UploadSingleResponse>;
 }
 
+async function uploadPointcloudDirect(params: {
+  file: File;
+  roomSlug: string;
+  captureDate: string;
+  token: string;
+}): Promise<UploadSingleResponse> {
+  const initForm = new FormData();
+  initForm.append('room_slug', params.roomSlug);
+  initForm.append('capture_date', params.captureDate);
+  initForm.append('filename', params.file.name);
+  initForm.append('file_size', String(params.file.size));
+  initForm.append('content_type', params.file.type || 'application/octet-stream');
+
+  const initRes = await fetch(`${API_BASE}/upload/pointcloud/direct-init`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${params.token}` },
+    body: initForm,
+  });
+  if (!initRes.ok) {
+    throw new Error(await parseApiError(initRes));
+  }
+  const initData = (await initRes.json()) as { upload_id: string; upload_url: string; method?: string };
+
+  const uploadRes = await fetch(initData.upload_url, {
+    method: initData.method || 'PUT',
+    headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
+    body: params.file,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`Direct MinIO upload failed (${uploadRes.status})`);
+  }
+
+  const doneForm = new FormData();
+  doneForm.append('upload_id', initData.upload_id);
+  const doneRes = await fetch(`${API_BASE}/upload/pointcloud/direct-complete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${params.token}` },
+    body: doneForm,
+  });
+  if (!doneRes.ok) {
+    throw new Error(await parseApiError(doneRes));
+  }
+  return doneRes.json() as Promise<UploadSingleResponse>;
+}
+
 export async function uploadSingleFile(params: {
   file: File;
   roomSlug: string;
@@ -340,12 +385,21 @@ export async function uploadSingleFile(params: {
   }
 
   if (params.mediaType === 'pointcloud') {
-    return uploadPointcloudInChunks({
-      file: params.file,
-      roomSlug: params.roomSlug,
-      captureDate: params.captureDate,
-      token,
-    });
+    try {
+      return await uploadPointcloudDirect({
+        file: params.file,
+        roomSlug: params.roomSlug,
+        captureDate: params.captureDate,
+        token,
+      });
+    } catch {
+      return uploadPointcloudInChunks({
+        file: params.file,
+        roomSlug: params.roomSlug,
+        captureDate: params.captureDate,
+        token,
+      });
+    }
   }
 
   const form = new FormData();
