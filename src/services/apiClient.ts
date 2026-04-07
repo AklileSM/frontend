@@ -232,6 +232,66 @@ export type UploadSingleResponse = {
   capture_date: string;
 };
 
+const POINTCLOUD_CHUNK_SIZE = 8 * 1024 * 1024;
+
+async function uploadPointcloudInChunks(params: {
+  file: File;
+  roomSlug: string;
+  captureDate: string;
+  token: string;
+}): Promise<UploadSingleResponse> {
+  const initForm = new FormData();
+  initForm.append('room_slug', params.roomSlug);
+  initForm.append('capture_date', params.captureDate);
+  initForm.append('filename', params.file.name);
+  initForm.append('file_size', String(params.file.size));
+  initForm.append('content_type', params.file.type || 'application/octet-stream');
+
+  const initRes = await fetch(`${API_BASE}/upload/pointcloud/init`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${params.token}` },
+    body: initForm,
+  });
+  if (!initRes.ok) {
+    throw new Error(await parseApiError(initRes));
+  }
+  const initData = (await initRes.json()) as { upload_id: string; chunk_size?: number };
+  const uploadId = initData.upload_id;
+  const chunkSize = initData.chunk_size && initData.chunk_size > 0 ? initData.chunk_size : POINTCLOUD_CHUNK_SIZE;
+
+  const totalChunks = Math.ceil(params.file.size / chunkSize);
+  for (let i = 0; i < totalChunks; i += 1) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize, params.file.size);
+    const blob = params.file.slice(start, end);
+    const chunkForm = new FormData();
+    chunkForm.append('upload_id', uploadId);
+    chunkForm.append('chunk_index', String(i));
+    chunkForm.append('chunk', blob, params.file.name);
+    const chunkRes = await fetch(`${API_BASE}/upload/pointcloud/chunk`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${params.token}` },
+      body: chunkForm,
+    });
+    if (!chunkRes.ok) {
+      throw new Error(await parseApiError(chunkRes));
+    }
+  }
+
+  const doneForm = new FormData();
+  doneForm.append('upload_id', uploadId);
+  doneForm.append('total_chunks', String(totalChunks));
+  const doneRes = await fetch(`${API_BASE}/upload/pointcloud/complete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${params.token}` },
+    body: doneForm,
+  });
+  if (!doneRes.ok) {
+    throw new Error(await parseApiError(doneRes));
+  }
+  return doneRes.json() as Promise<UploadSingleResponse>;
+}
+
 export async function uploadSingleFile(params: {
   file: File;
   roomSlug: string;
@@ -241,6 +301,15 @@ export async function uploadSingleFile(params: {
   const token = getAccessToken();
   if (!token) {
     throw new Error('You must be signed in to upload.');
+  }
+
+  if (params.mediaType === 'pointcloud') {
+    return uploadPointcloudInChunks({
+      file: params.file,
+      roomSlug: params.roomSlug,
+      captureDate: params.captureDate,
+      token,
+    });
   }
 
   const form = new FormData();
