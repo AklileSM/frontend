@@ -14,6 +14,8 @@ import {
   type FieldObservationFlags,
 } from '../../utils/engineeringReportPdf';
 import { readSession } from '../../auth/authSession';
+import { createReportWithPdf } from '../../services/apiClient';
+import { flagsFromObservationBooleans } from '../../utils/observationReportFlags';
 
 const ComparePage: React.FC = () => {
   const { dataByDate } = useCaptureDatesSummary();
@@ -27,6 +29,8 @@ const ComparePage: React.FC = () => {
   const [rightSelectedDate, setRightSelectedDate] = useState<string | null>(null);
   const [leftSelectedFile, setLeftSelectedFile] = useState<string | null>(null);
   const [rightSelectedFile, setRightSelectedFile] = useState<string | null>(null);
+  const [leftSelectedFileId, setLeftSelectedFileId] = useState<string | null>(null);
+  const [rightSelectedFileId, setRightSelectedFileId] = useState<string | null>(null);
 
   const [showLeftCalendar, setShowLeftCalendar] = useState(true);
   const [showRightCalendar, setShowRightCalendar] = useState(true);
@@ -108,11 +112,13 @@ const ComparePage: React.FC = () => {
 
   const handleCloseLeft360Viewer = () => {
     setLeftSelectedFile(null);
+    setLeftSelectedFileId(null);
     setShowLeft360Viewer(false);
     setLeftViewerMeta(null);
   };
   const handleCloseRight360Viewer = () => {
     setRightSelectedFile(null);
+    setRightSelectedFileId(null);
     setShowRight360Viewer(false);
     setRightViewerMeta(null);
   };
@@ -227,6 +233,7 @@ const ComparePage: React.FC = () => {
   const handleLeftDateSelect = (date: string) => {
     setLeftSelectedDate(date);
     setLeftSelectedFile(null);
+    setLeftSelectedFileId(null);
     setLeftViewerMeta(null);
     setShowLeftCalendar(false);
   };
@@ -234,6 +241,7 @@ const ComparePage: React.FC = () => {
   const handleRightDateSelect = (date: string) => {
     setRightSelectedDate(date);
     setRightSelectedFile(null);
+    setRightSelectedFileId(null);
     setRightViewerMeta(null);
     setShowRightCalendar(false);
   };
@@ -277,6 +285,7 @@ const ComparePage: React.FC = () => {
     }
 
     setLeftSelectedFile(fileUrl);
+    setLeftSelectedFileId(sel.fileId ?? null);
     setLeftViewerMeta({
       displayFileName: sel.displayFileName,
       roomLabel: sel.roomLabel,
@@ -323,6 +332,7 @@ const ComparePage: React.FC = () => {
     }
 
     setRightSelectedFile(fileUrl);
+    setRightSelectedFileId(sel.fileId ?? null);
     setRightViewerMeta({
       displayFileName: sel.displayFileName,
       roomLabel: sel.roomLabel,
@@ -397,7 +407,7 @@ const ComparePage: React.FC = () => {
     setIsModalOpen(false);
   };
   
-  const handleModalPublish = (action: 'save' | 'publish') => {
+  const handleModalPublish = async (action: 'save' | 'publish') => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -459,6 +469,47 @@ const ComparePage: React.FC = () => {
     });
 
     const pdfBlob = doc.output('blob');
+
+    const primaryFileId = leftSelectedFileId || rightSelectedFileId;
+    if (primaryFileId) {
+      try {
+        const mergedNotes = [leftNotes, rightNotes]
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .join('\n\n');
+        const mergedAnnexNotes = [
+          leftAdditionalScreenshotNotes.text,
+          rightAdditionalScreenshotNotes.text,
+        ]
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .join('\n\n');
+        const manualObservations = [mergedNotes, mergedAnnexNotes]
+          .filter(Boolean)
+          .join('\n\n');
+        const flags = flagsFromObservationBooleans(
+          leftSafetyIssue || rightSafetyIssue,
+          leftQualityIssue || rightQualityIssue,
+          leftDelayed || rightDelayed,
+        );
+
+        await createReportWithPdf({
+          pdfBlob,
+          fileId: primaryFileId,
+          filename: `FieldObservation_Compare_${ref}.pdf`,
+          aiDescription: null,
+          manualObservations: manualObservations || null,
+          flags,
+        });
+      } catch (e) {
+        alert(
+          e instanceof Error
+            ? `${e.message} The compare report was still generated locally.`
+            : 'Could not save the compare report on the server. The report was still generated locally.',
+        );
+      }
+    }
+
     const newReport = {
       id: savedReports.current.length + 1, // Unique ID
       title: `Report ${savedReports.current.length + 1}`, // Title
