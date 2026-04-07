@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef, } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera } from 'three';
@@ -78,7 +78,7 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
   const [gl, setGl] = useState<WebGLRenderer | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
-  const [capturedScreenshots, setCapturedScreenshots] = useState<string[]>([]);
+  const capturedScreenshotsRef = useRef<string[]>([]);
   const orbitControlsRef = useRef<any>(null);
   const isApplyingRemoteStateRef = useRef(false);
   const lastBroadcastAtRef = useRef(0);
@@ -142,9 +142,7 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
     const target = orbitControlsRef.current?.target;
     onCameraStateChange(viewerSide, {
       position: [camera.position.x, camera.position.y, camera.position.z],
-      target
-        ? [target.x, target.y, target.z]
-        : [0, 0, 0],
+      target: target ? [target.x, target.y, target.z] : [0, 0, 0],
     });
   }, [camera, viewerSide, onCameraStateChange]);
 
@@ -158,9 +156,7 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
     const target = orbitControlsRef.current?.target;
     onCameraStateChange(viewerSide, {
       position: [camera.position.x, camera.position.y, camera.position.z],
-      target
-        ? [target.x, target.y, target.z]
-        : [0, 0, 0],
+      target: target ? [target.x, target.y, target.z] : [0, 0, 0],
     });
   };
   
@@ -196,13 +192,11 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
       gl.render(scene, camera);
       const dataUrl = gl.domElement.toDataURL("image/png");
 
-      setCapturedScreenshots((prevScreenshots) => {
-        const newScreenshots = [...prevScreenshots, dataUrl];
-        if (onScreenshotsUpdate) {
-          onScreenshotsUpdate(newScreenshots);
-        }
-        return newScreenshots;
-      });
+      const newScreenshots = [...capturedScreenshotsRef.current, dataUrl];
+      capturedScreenshotsRef.current = newScreenshots;
+      if (onScreenshotsUpdate) {
+        onScreenshotsUpdate(newScreenshots);
+      }
 
       // Open modal with the new screenshot
       setCurrentScreenshot(dataUrl);
