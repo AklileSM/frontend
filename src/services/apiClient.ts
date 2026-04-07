@@ -232,7 +232,15 @@ export type UploadSingleResponse = {
   capture_date: string;
 };
 
-const POINTCLOUD_CHUNK_SIZE = 8 * 1024 * 1024;
+const POINTCLOUD_CHUNK_SIZE = 32 * 1024 * 1024;
+const POINTCLOUD_UPLOAD_CONCURRENCY = 3;
+const POINTCLOUD_CHUNK_MAX_RETRIES = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 async function uploadPointcloudInChunks(params: {
   file: File;
@@ -260,22 +268,50 @@ async function uploadPointcloudInChunks(params: {
   const chunkSize = initData.chunk_size && initData.chunk_size > 0 ? initData.chunk_size : POINTCLOUD_CHUNK_SIZE;
 
   const totalChunks = Math.ceil(params.file.size / chunkSize);
-  for (let i = 0; i < totalChunks; i += 1) {
-    const start = i * chunkSize;
-    const end = Math.min(start + chunkSize, params.file.size);
-    const blob = params.file.slice(start, end);
-    const chunkForm = new FormData();
-    chunkForm.append('upload_id', uploadId);
-    chunkForm.append('chunk_index', String(i));
-    chunkForm.append('chunk', blob, params.file.name);
-    const chunkRes = await fetch(`${API_BASE}/upload/pointcloud/chunk`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${params.token}` },
-      body: chunkForm,
-    });
-    if (!chunkRes.ok) {
-      throw new Error(await parseApiError(chunkRes));
+  let nextChunkIndex = 0;
+  const uploadOneChunkWithRetry = async (chunkIndex: number): Promise<void> => {
+    let attempt = 0;
+    while (attempt <= POINTCLOUD_CHUNK_MAX_RETRIES) {
+      const start = chunkIndex * chunkSize;
+      const end = Math.min(start + chunkSize, params.file.size);
+      const blob = params.file.slice(start, end);
+      const chunkForm = new FormData();
+      chunkForm.append('upload_id', uploadId);
+      chunkForm.append('chunk_index', String(chunkIndex));
+      chunkForm.append('chunk', blob, params.file.name);
+
+      const chunkRes = await fetch(`${API_BASE}/upload/pointcloud/chunk`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${params.token}` },
+        body: chunkForm,
+      });
+      if (chunkRes.ok) {
+        return;
+      }
+      const err = await parseApiError(chunkRes);
+      if (attempt >= POINTCLOUD_CHUNK_MAX_RETRIES) {
+        throw new Error(`Chunk ${chunkIndex + 1}/${totalChunks} failed: ${err}`);
+      }
+      await sleep(500 * 2 ** attempt);
+      attempt += 1;
     }
+  };
+
+  const workers = Array.from(
+    { length: Math.min(POINTCLOUD_UPLOAD_CONCURRENCY, totalChunks) },
+    async () => {
+      while (true) {
+        const chunkIndex = nextChunkIndex;
+        nextChunkIndex += 1;
+        if (chunkIndex >= totalChunks) {
+          return;
+        }
+        await uploadOneChunkWithRetry(chunkIndex);
+      }
+    },
+  );
+  for (const worker of workers) {
+    await worker;
   }
 
   const doneForm = new FormData();
