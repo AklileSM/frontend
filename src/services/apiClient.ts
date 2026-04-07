@@ -392,7 +392,11 @@ export async function uploadSingleFile(params: {
         captureDate: params.captureDate,
         token,
       });
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[upload] Direct MinIO pointcloud upload failed, falling back to chunked upload: ${message}`,
+      );
       return uploadPointcloudInChunks({
         file: params.file,
         roomSlug: params.roomSlug,
