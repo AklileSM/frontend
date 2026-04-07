@@ -17,6 +17,14 @@ import { readSession } from '../../auth/authSession';
 import { createReportWithPdf } from '../../services/apiClient';
 import { flagsFromObservationBooleans } from '../../utils/observationReportFlags';
 
+type CompareViewerSide = 'left' | 'right';
+type CameraSyncState = {
+  position: [number, number, number];
+  target: [number, number, number];
+  source: CompareViewerSide;
+  seq: number;
+};
+
 const ComparePage: React.FC = () => {
   const { dataByDate } = useCaptureDatesSummary();
   const availableDates = useMemo(
@@ -97,7 +105,10 @@ const ComparePage: React.FC = () => {
   // Add this at the top, alongside existing useState hooks
   const [isBottomSectionVisible, setIsBottomSectionVisible] = useState(false);
 
-  const [sharedCameraPosition, setSharedCameraPosition] = useState<[number, number, number]>([0, 0, 20]);
+  const [sharedCameraState, setSharedCameraState] = useState<CameraSyncState | null>(null);
+  const [lastLeftCameraState, setLastLeftCameraState] = useState<CameraSyncState | null>(null);
+  const [lastRightCameraState, setLastRightCameraState] = useState<CameraSyncState | null>(null);
+  const [lockLeader, setLockLeader] = useState<CompareViewerSide | null>(null);
   const [isSynchronized, setIsSynchronized] = useState(false);
 
   const [leftTakeScreenshot, setLeftTakeScreenshot] = useState<() => string | null>(() => () => null);
@@ -218,7 +229,46 @@ const ComparePage: React.FC = () => {
   };
 
   const toggleSynchronization = () => {
-    setIsSynchronized(!isSynchronized);
+    setIsSynchronized((prev) => {
+      const next = !prev;
+      if (next) {
+        // Snap follower immediately to the last known leader view.
+        const seed = lastLeftCameraState ?? lastRightCameraState;
+        if (seed) {
+          setSharedCameraState({
+            ...seed,
+            source: lastLeftCameraState ? 'left' : 'right',
+            seq: seed.seq + 1,
+          });
+          setLockLeader(lastLeftCameraState ? 'left' : 'right');
+        }
+      } else {
+        setLockLeader(null);
+      }
+      return next;
+    });
+  };
+
+  const handleCameraStateChange = (side: CompareViewerSide, state: Omit<CameraSyncState, 'source' | 'seq'>) => {
+    const fullState: CameraSyncState = {
+      ...state,
+      source: side,
+      seq: Date.now(),
+    };
+
+    if (side === 'left') {
+      setLastLeftCameraState(fullState);
+    } else {
+      setLastRightCameraState(fullState);
+    }
+
+    if (!isSynchronized) return;
+    if (lockLeader && lockLeader !== side) return;
+
+    if (!lockLeader) {
+      setLockLeader(side);
+    }
+    setSharedCameraState(fullState);
   };
 
   // Handlers to update image details from each viewer
@@ -588,6 +638,7 @@ const ComparePage: React.FC = () => {
                 />
               ) : showLeft360Viewer ? (
                 <Compare360Viewer
+                  viewerSide="left"
                   onTakeScreenshot={handleLeftScreenshotAssignment}
                   imageUrl={leftHDImageUrl as string}
                   displayFileName={leftViewerMeta?.displayFileName}
@@ -596,8 +647,8 @@ const ComparePage: React.FC = () => {
                   onClose={handleCloseLeft360Viewer}
                   onScreenshotsUpdate={handleLeftScreenshot}
                   onImageDetailsUpdate={handleLeftImageDetailsUpdate}
-                  sharedCameraPosition={sharedCameraPosition}
-                  setSharedCameraPosition={setSharedCameraPosition}
+                  sharedCameraState={sharedCameraState}
+                  onCameraStateChange={handleCameraStateChange}
                   isSynchronized={isSynchronized}
                 />
               ) : (
@@ -639,6 +690,7 @@ const ComparePage: React.FC = () => {
                 />
               ) : showRight360Viewer ? (
                 <Compare360Viewer
+                  viewerSide="right"
                   onTakeScreenshot={handleRightScreenshotAssignment}
                   imageUrl={rightHDImageUrl as string}
                   displayFileName={rightViewerMeta?.displayFileName}
@@ -647,8 +699,8 @@ const ComparePage: React.FC = () => {
                   onClose={handleCloseRight360Viewer}
                   onScreenshotsUpdate={handleRightScreenshot}
                   onImageDetailsUpdate={handleRightImageDetailsUpdate}
-                  sharedCameraPosition={sharedCameraPosition}
-                  setSharedCameraPosition={setSharedCameraPosition}
+                  sharedCameraState={sharedCameraState}
+                  onCameraStateChange={handleCameraStateChange}
                   isSynchronized={isSynchronized}
                 />
               ) : (

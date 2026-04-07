@@ -4,7 +4,16 @@ import { OrbitControls } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera } from 'three';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../../utils/imageViewerMeta';
 
+type CompareViewerSide = 'left' | 'right';
+type CameraSyncState = {
+  position: [number, number, number];
+  target: [number, number, number];
+  source: CompareViewerSide;
+  seq: number;
+};
+
 interface Compare360ViewerProps {
+  viewerSide: CompareViewerSide;
   imageUrl: string;
   /** When set (e.g. from API explorer), overlay shows this instead of parsing the presigned URL. */
   displayFileName?: string;
@@ -13,8 +22,11 @@ interface Compare360ViewerProps {
   onClose: () => void;
   onScreenshotsUpdate?: (screenshots: string[]) => void;
   onImageDetailsUpdate?: (fileName: string, formattedDate: string) => void;
-  sharedCameraPosition: [number, number, number];
-  setSharedCameraPosition: (position: [number, number, number]) => void;
+  sharedCameraState: CameraSyncState | null;
+  onCameraStateChange: (
+    side: CompareViewerSide,
+    state: { position: [number, number, number]; target: [number, number, number] },
+  ) => void;
   isSynchronized: boolean;
   onTakeScreenshot?: (takeScreenshot: () => string | null) => void;
 }
@@ -47,6 +59,7 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
 };
 
 const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
+  viewerSide,
   imageUrl,
   displayFileName: displayFileNameProp,
   roomLabel: roomLabelProp,
@@ -54,8 +67,8 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
   onClose,
   onScreenshotsUpdate,
   onImageDetailsUpdate,
-  sharedCameraPosition,
-  setSharedCameraPosition,
+  sharedCameraState,
+  onCameraStateChange,
   isSynchronized,
   onTakeScreenshot,
 }) => {
@@ -66,6 +79,9 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
   const [scene, setScene] = useState<Scene | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
   const [capturedScreenshots, setCapturedScreenshots] = useState<string[]>([]);
+  const orbitControlsRef = useRef<any>(null);
+  const isApplyingRemoteStateRef = useRef(false);
+  const lastBroadcastAtRef = useRef(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentScreenshot, setCurrentScreenshot] = useState<string | null>(null);
@@ -109,15 +125,43 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
   
   
   useEffect(() => {
-    if (isSynchronized && camera) {
-      camera.position.set(...sharedCameraPosition);
+    if (!isSynchronized || !camera || !sharedCameraState) return;
+    if (sharedCameraState.source === viewerSide) return;
+
+    isApplyingRemoteStateRef.current = true;
+    camera.position.set(...sharedCameraState.position);
+    if (orbitControlsRef.current?.target) {
+      orbitControlsRef.current.target.set(...sharedCameraState.target);
+      orbitControlsRef.current.update();
     }
-  }, [sharedCameraPosition, isSynchronized]);
+    isApplyingRemoteStateRef.current = false;
+  }, [sharedCameraState, isSynchronized, camera, viewerSide]);
+
+  useEffect(() => {
+    if (!camera) return;
+    const target = orbitControlsRef.current?.target;
+    onCameraStateChange(viewerSide, {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      target
+        ? [target.x, target.y, target.z]
+        : [0, 0, 0],
+    });
+  }, [camera, viewerSide, onCameraStateChange]);
 
   const handleCameraChange = () => {
-    if (isSynchronized && camera) {
-      setSharedCameraPosition([camera.position.x, camera.position.y, camera.position.z]);
-    }
+    if (!camera || !isSynchronized || isApplyingRemoteStateRef.current) return;
+
+    const now = Date.now();
+    if (now - lastBroadcastAtRef.current < 50) return;
+    lastBroadcastAtRef.current = now;
+
+    const target = orbitControlsRef.current?.target;
+    onCameraStateChange(viewerSide, {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      target
+        ? [target.x, target.y, target.z]
+        : [0, 0, 0],
+    });
   };
   
   let roomNumber: string;
@@ -339,6 +383,7 @@ const Compare360Viewer: React.FC<Compare360ViewerProps> = ({
         }} />
         <PanoramicSphere imageUrl={imageUrl} />
         <OrbitControls
+          ref={orbitControlsRef}
           enablePan={true}
           enableZoom={false}
           enableDamping={true}
