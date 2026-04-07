@@ -44,6 +44,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadOk, setUploadOk] = useState<string | null>(null);
   const [roomsFetchError, setRoomsFetchError] = useState<string | null>(null);
@@ -244,6 +245,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     const mediaType = activeTab === 'pdfs' ? 'pdf' : activeTab === 'pointclouds' ? 'pointcloud' : 'image';
     setUploadError(null);
     setUploadOk(null);
+    setUploadProgress(mediaType === 'pointcloud' ? 0 : null);
     setUploading(true);
     try {
       await uploadSingleFile({
@@ -251,6 +253,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
         roomSlug,
         mediaType,
         captureDate: selectedDate,
+        onProgress: mediaType === 'pointcloud' ? (percent) => setUploadProgress(percent) : undefined,
       });
       setUploadOk(activeTab === 'pointclouds' ? `Uploaded "${file.name}". Converting to Potree format \u2014 check back in a few minutes.` : `Uploaded "${file.name}".`);
       setFile(null);
@@ -261,6 +264,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
       setUploadError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -518,8 +522,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                   onClick={handleUpload}
                   className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {uploading ? 'Uploading…' : 'Upload'}
+                  {uploading ? (uploadProgress != null ? `Uploading… ${uploadProgress}%` : 'Uploading…') : 'Upload'}
                 </button>
+              </div>
+            )}
+            {uploading && uploadProgress != null && (
+              <div className="mt-3">
+                <div className="h-2 w-full overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className="h-full bg-primary transition-all duration-150"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-bodydark dark:text-gray-400">
+                  Pointcloud upload progress: {uploadProgress}%
+                </p>
               </div>
             )}
             {uploadError && <p className="mt-2 text-sm text-red-500">{uploadError}</p>}

@@ -232,8 +232,8 @@ export type UploadSingleResponse = {
   capture_date: string;
 };
 
-const POINTCLOUD_CHUNK_SIZE = 32 * 1024 * 1024;
-const POINTCLOUD_UPLOAD_CONCURRENCY = 3;
+const POINTCLOUD_CHUNK_SIZE = 64 * 1024 * 1024;
+const POINTCLOUD_UPLOAD_CONCURRENCY = 5;
 const POINTCLOUD_CHUNK_MAX_RETRIES = 3;
 
 function sleep(ms: number): Promise<void> {
@@ -247,6 +247,7 @@ async function uploadPointcloudInChunks(params: {
   roomSlug: string;
   captureDate: string;
   token: string;
+  onProgress?: (percent: number) => void;
 }): Promise<UploadSingleResponse> {
   const initForm = new FormData();
   initForm.append('room_slug', params.roomSlug);
@@ -268,6 +269,8 @@ async function uploadPointcloudInChunks(params: {
   const chunkSize = initData.chunk_size && initData.chunk_size > 0 ? initData.chunk_size : POINTCLOUD_CHUNK_SIZE;
 
   const totalChunks = Math.ceil(params.file.size / chunkSize);
+  let uploadedBytes = 0;
+  params.onProgress?.(0);
   let nextChunkIndex = 0;
   const uploadOneChunkWithRetry = async (chunkIndex: number): Promise<void> => {
     let attempt = 0;
@@ -286,6 +289,9 @@ async function uploadPointcloudInChunks(params: {
         body: chunkForm,
       });
       if (chunkRes.ok) {
+        uploadedBytes += end - start;
+        const percent = Math.min(99, Math.round((uploadedBytes / params.file.size) * 100));
+        params.onProgress?.(percent);
         return;
       }
       const err = await parseApiError(chunkRes);
@@ -325,7 +331,39 @@ async function uploadPointcloudInChunks(params: {
   if (!doneRes.ok) {
     throw new Error(await parseApiError(doneRes));
   }
+  params.onProgress?.(100);
   return doneRes.json() as Promise<UploadSingleResponse>;
+}
+
+function uploadViaXhr(params: {
+  url: string;
+  method: string;
+  file: File;
+  contentType: string;
+  onProgress?: (percent: number) => void;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(params.method, params.url, true);
+    xhr.setRequestHeader('Content-Type', params.contentType);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+      params.onProgress?.(percent);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        params.onProgress?.(100);
+        resolve();
+      } else {
+        reject(new Error(`Direct MinIO upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Direct MinIO upload failed (network error)'));
+    xhr.ontimeout = () => reject(new Error('Direct MinIO upload failed (timeout)'));
+    xhr.timeout = 120000;
+    xhr.send(params.file);
+  });
 }
 
 async function uploadPointcloudDirect(params: {
@@ -333,6 +371,7 @@ async function uploadPointcloudDirect(params: {
   roomSlug: string;
   captureDate: string;
   token: string;
+  onProgress?: (percent: number) => void;
 }): Promise<UploadSingleResponse> {
   const initForm = new FormData();
   initForm.append('room_slug', params.roomSlug);
@@ -351,14 +390,13 @@ async function uploadPointcloudDirect(params: {
   }
   const initData = (await initRes.json()) as { upload_id: string; upload_url: string; method?: string };
 
-  const uploadRes = await fetch(initData.upload_url, {
+  await uploadViaXhr({
+    url: initData.upload_url,
     method: initData.method || 'PUT',
-    headers: { 'Content-Type': params.file.type || 'application/octet-stream' },
-    body: params.file,
+    file: params.file,
+    contentType: params.file.type || 'application/octet-stream',
+    onProgress: params.onProgress,
   });
-  if (!uploadRes.ok) {
-    throw new Error(`Direct MinIO upload failed (${uploadRes.status})`);
-  }
 
   const doneForm = new FormData();
   doneForm.append('upload_id', initData.upload_id);
@@ -378,6 +416,7 @@ export async function uploadSingleFile(params: {
   roomSlug: string;
   mediaType: 'image' | 'video' | 'pointcloud' | 'pdf';
   captureDate: string;
+  onProgress?: (percent: number) => void;
 }): Promise<UploadSingleResponse> {
   const token = getAccessToken();
   if (!token) {
@@ -391,6 +430,7 @@ export async function uploadSingleFile(params: {
         roomSlug: params.roomSlug,
         captureDate: params.captureDate,
         token,
+        onProgress: params.onProgress,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -402,6 +442,7 @@ export async function uploadSingleFile(params: {
         roomSlug: params.roomSlug,
         captureDate: params.captureDate,
         token,
+        onProgress: params.onProgress,
       });
     }
   }
