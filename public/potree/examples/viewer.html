@@ -31,15 +31,12 @@
 		<div id="potree_render_area"></div>
 		<div id="potree_sidebar_container"> </div>
 	</div>
-	<div id="pc_viewport_tools" role="toolbar" aria-label="Viewport tools">
-		<button id="pc_btn_fullscreen" type="button" title="Fullscreen">⛶</button>
-		<button id="pc_btn_controls" type="button" title="Toggle controls">⚙</button>
-		<button id="pc_btn_measure_distance" type="button" title="Distance measurement">↔</button>
-		<button id="pc_btn_measure_area" type="button" title="Area measurement">▱</button>
-		<button id="pc_btn_measure_point" type="button" title="Point measurement">•</button>
-		<button id="pc_btn_measure_clear" type="button" title="Clear measurements">✕</button>
-	</div>
 	<div id="pc_bottom_dock" role="region" aria-label="Point cloud controls">
+		<div class="pc-dock-header">
+			<span>Viewer Controls</span>
+			<button id="pc_toggle_dock" type="button" aria-expanded="true" title="Collapse controls">▾</button>
+		</div>
+		<div class="pc-dock-content">
 		<div class="pc-group">
 			<div class="pc-title">Render</div>
 			<label>Point Budget <span id="pc_budget_value">10M</span></label>
@@ -79,6 +76,26 @@
 				<button id="pc_reset" type="button">Reset</button>
 			</div>
 		</div>
+		<div class="pc-group pc-inline">
+			<div class="pc-title">Move & Measure</div>
+			<label class="pc-row">Movement
+				<select id="pc_move_mode">
+					<option value="orbit" selected>Orbit</option>
+					<option value="earth">Earth</option>
+					<option value="fps">First Person</option>
+					<option value="heli">Helicopter</option>
+				</select>
+			</label>
+			<label>Move Speed <span id="pc_speed_value">10</span></label>
+			<input id="pc_speed" type="range" min="1" max="50" step="1" value="10" />
+			<div class="pc-actions">
+				<button id="pc_meas_distance" type="button">Distance</button>
+				<button id="pc_meas_area" type="button">Area</button>
+				<button id="pc_meas_point" type="button">Point</button>
+				<button id="pc_meas_clear" type="button">Clear</button>
+			</div>
+		</div>
+		</div>
 	</div>
 
 	<script type="module">
@@ -114,13 +131,15 @@
 		const elSplat = $("pc_splat");
 		const elFit = $("pc_fit");
 		const elReset = $("pc_reset");
-		const elDock = $("pc_bottom_dock");
-		const elBtnFullscreen = $("pc_btn_fullscreen");
-		const elBtnControls = $("pc_btn_controls");
-		const elBtnDistance = $("pc_btn_measure_distance");
-		const elBtnArea = $("pc_btn_measure_area");
-		const elBtnPoint = $("pc_btn_measure_point");
-		const elBtnClear = $("pc_btn_measure_clear");
+		const elToggleDock = $("pc_toggle_dock");
+		const elMoveMode = $("pc_move_mode");
+		const elSpeed = $("pc_speed");
+		const elSpeedVal = $("pc_speed_value");
+		const elMeasDistance = $("pc_meas_distance");
+		const elMeasArea = $("pc_meas_area");
+		const elMeasPoint = $("pc_meas_point");
+		const elMeasClear = $("pc_meas_clear");
+		const dock = $("pc_bottom_dock");
 
 		const applyRenderControls = () => {
 			viewer.setPointBudget(parseInt(elBudget.value, 10));
@@ -135,6 +154,10 @@
 			viewer.setEDLEnabled(elEdl.checked);
 			viewer.setBackground(elBg.value);
 			viewer.useHQ = elSplat.value === "hq";
+			if (typeof viewer.setMoveSpeed === "function") {
+				viewer.setMoveSpeed(parseInt(elSpeed.value, 10));
+			}
+			elSpeedVal.textContent = elSpeed.value;
 
 			if (activeMaterial) {
 				activeMaterial.size = parseFloat(elSize.value);
@@ -146,6 +169,22 @@
 			el.addEventListener("input", applyRenderControls);
 			el.addEventListener("change", applyRenderControls);
 		});
+		elSpeed.addEventListener("input", applyRenderControls);
+		elSpeed.addEventListener("change", applyRenderControls);
+
+		elMoveMode.addEventListener("change", () => {
+			if (elMoveMode.value === "orbit") {
+				viewer.setControls(viewer.orbitControls);
+			} else if (elMoveMode.value === "earth") {
+				viewer.setControls(viewer.earthControls);
+			} else if (elMoveMode.value === "fps") {
+				viewer.setControls(viewer.fpControls);
+				viewer.fpControls.lockElevation = false;
+			} else if (elMoveMode.value === "heli") {
+				viewer.setControls(viewer.fpControls);
+				viewer.fpControls.lockElevation = true;
+			}
+		});
 
 		elFit.addEventListener("click", () => viewer.fitToScreen());
 		elReset.addEventListener("click", () => {
@@ -156,28 +195,14 @@
 			elEdl.checked = false;
 			elBg.value = "gradient";
 			elSplat.value = "hq";
+			elSpeed.value = "10";
+			elMoveMode.value = "orbit";
+			viewer.setControls(viewer.orbitControls);
 			applyRenderControls();
 			viewer.fitToScreen();
 		});
 
-		const toggleDock = () => {
-			elDock.classList.toggle("pc-collapsed");
-		};
-
-		const toggleFullscreen = async () => {
-			if (!document.fullscreenElement) {
-				await document.documentElement.requestFullscreen();
-			} else {
-				await document.exitFullscreen();
-			}
-		};
-
-		elBtnControls.addEventListener("click", toggleDock);
-		elBtnFullscreen.addEventListener("click", () => {
-			toggleFullscreen().catch(() => {});
-		});
-
-		elBtnDistance.addEventListener("click", () => {
+		elMeasDistance.addEventListener("click", () => {
 			viewer.measuringTool.startInsertion({
 				showDistances: true,
 				showArea: false,
@@ -185,8 +210,7 @@
 				name: "Distance",
 			});
 		});
-
-		elBtnArea.addEventListener("click", () => {
+		elMeasArea.addEventListener("click", () => {
 			viewer.measuringTool.startInsertion({
 				showDistances: true,
 				showArea: true,
@@ -194,8 +218,7 @@
 				name: "Area",
 			});
 		});
-
-		elBtnPoint.addEventListener("click", () => {
+		elMeasPoint.addEventListener("click", () => {
 			viewer.measuringTool.startInsertion({
 				showDistances: false,
 				showAngles: false,
@@ -206,9 +229,16 @@
 				name: "Point",
 			});
 		});
-
-		elBtnClear.addEventListener("click", () => {
+		elMeasClear.addEventListener("click", () => {
 			viewer.scene.removeAllMeasurements();
+		});
+
+		elToggleDock.addEventListener("click", () => {
+			dock.classList.toggle("pc-collapsed");
+			const expanded = !dock.classList.contains("pc-collapsed");
+			elToggleDock.setAttribute("aria-expanded", expanded ? "true" : "false");
+			elToggleDock.textContent = expanded ? "▾" : "▴";
+			elToggleDock.title = expanded ? "Collapse controls" : "Expand controls";
 		});
 
 		applyRenderControls();
