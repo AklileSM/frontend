@@ -199,7 +199,7 @@ const StaticPointCloudViewer: React.FC = () => {
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="absolute bottom-4 right-4 z-10 bg-primary text-white p-3 rounded-full shadow-lg transition-transform duration-300 hover:scale-110"
+            className="absolute bottom-28 right-4 z-10 bg-primary text-white p-3 rounded-full shadow-lg transition-transform duration-300 hover:scale-110"
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
             {isFullscreen ? (
