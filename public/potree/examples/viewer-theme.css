@@ -1,0 +1,76 @@
+:root {
+  --pc-bg-main: #1d2636;
+  --pc-bg-panel: #111827;
+  --pc-bg-soft: #1f2937;
+  --pc-border: #374151;
+  --pc-text-main: #e5e7eb;
+  --pc-text-muted: #9ca3af;
+  --pc-primary: #3c50e0;
+}
+
+#potree_sidebar_container {
+  width: 320px;
+  border-right: 1px solid var(--pc-border);
+  background: var(--pc-bg-panel);
+}
+
+#sidebar_root,
+#potree_sidebar_container .ui-accordion,
+#potree_sidebar_container .ui-widget {
+  color: var(--pc-text-main);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+#potree_sidebar_container .ui-accordion-header {
+  background: var(--pc-bg-soft);
+  border: 1px solid var(--pc-border);
+  border-radius: 6px;
+  color: var(--pc-text-main);
+  margin-top: 6px;
+  padding: 8px 10px;
+}
+
+#potree_sidebar_container .ui-accordion-content {
+  border: 1px solid var(--pc-border);
+  border-top: 0;
+  background: #0f172a;
+  border-radius: 0 0 6px 6px;
+}
+
+#potree_sidebar_container .divider {
+  border-top-color: var(--pc-border);
+  margin: 10px 0;
+}
+
+#potree_sidebar_container .divider > span {
+  color: var(--pc-text-muted);
+  background: #0f172a;
+}
+
+#potree_sidebar_container input,
+#potree_sidebar_container select,
+#potree_sidebar_container .ui-button {
+  accent-color: var(--pc-primary);
+}
+
+#potree_sidebar_container a {
+  color: #93c5fd;
+}
+
+#potree_sidebar_container .potree_sidebar_brand,
+#potree_sidebar_container #potree_languages {
+  color: var(--pc-text-muted);
+}
+
+#potree_sidebar_container::-webkit-scrollbar {
+  width: 10px;
+}
+
+#potree_sidebar_container::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 9999px;
+}
+
+#potree_sidebar_container::-webkit-scrollbar-track {
+  background: #111827;
+}

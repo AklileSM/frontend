@@ -10,6 +10,7 @@
 	<link rel="stylesheet" type="text/css" href="../libs/openlayers3/ol.css">
 	<link rel="stylesheet" type="text/css" href="../libs/spectrum/spectrum.css">
 	<link rel="stylesheet" type="text/css" href="../libs/jstree/themes/mixed/style.css">
+	<link rel="stylesheet" type="text/css" href="./viewer-theme.css">
 </head>
 
 <body>
@@ -56,6 +57,15 @@
 			$("#menu_clipping").next().show();
 			$("#show_bounding_box").prop("checked", false);
 			viewer.setShowBoundingBox(false);
+
+			// Minimal product-focused sidebar: keep appearance + tools, hide less-used sections.
+			["#menu_scene", "#menu_filters", "#menu_about"].forEach((id) => {
+				$(id).hide();
+				$(id).next().hide();
+			});
+			$("#potree_branding").hide();
+			$("#potree_languages").hide();
+
 			viewer.toggleSidebar();
 		});
 
