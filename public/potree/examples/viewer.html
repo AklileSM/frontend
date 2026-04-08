@@ -31,6 +31,14 @@
 		<div id="potree_render_area"></div>
 		<div id="potree_sidebar_container"> </div>
 	</div>
+	<div id="pc_viewport_tools" role="toolbar" aria-label="Viewport tools">
+		<button id="pc_btn_fullscreen" type="button" title="Fullscreen">⛶</button>
+		<button id="pc_btn_controls" type="button" title="Toggle controls">⚙</button>
+		<button id="pc_btn_measure_distance" type="button" title="Distance measurement">↔</button>
+		<button id="pc_btn_measure_area" type="button" title="Area measurement">▱</button>
+		<button id="pc_btn_measure_point" type="button" title="Point measurement">•</button>
+		<button id="pc_btn_measure_clear" type="button" title="Clear measurements">✕</button>
+	</div>
 	<div id="pc_bottom_dock" role="region" aria-label="Point cloud controls">
 		<div class="pc-group">
 			<div class="pc-title">Render</div>
@@ -106,6 +114,13 @@
 		const elSplat = $("pc_splat");
 		const elFit = $("pc_fit");
 		const elReset = $("pc_reset");
+		const elDock = $("pc_bottom_dock");
+		const elBtnFullscreen = $("pc_btn_fullscreen");
+		const elBtnControls = $("pc_btn_controls");
+		const elBtnDistance = $("pc_btn_measure_distance");
+		const elBtnArea = $("pc_btn_measure_area");
+		const elBtnPoint = $("pc_btn_measure_point");
+		const elBtnClear = $("pc_btn_measure_clear");
 
 		const applyRenderControls = () => {
 			viewer.setPointBudget(parseInt(elBudget.value, 10));
@@ -143,6 +158,57 @@
 			elSplat.value = "hq";
 			applyRenderControls();
 			viewer.fitToScreen();
+		});
+
+		const toggleDock = () => {
+			elDock.classList.toggle("pc-collapsed");
+		};
+
+		const toggleFullscreen = async () => {
+			if (!document.fullscreenElement) {
+				await document.documentElement.requestFullscreen();
+			} else {
+				await document.exitFullscreen();
+			}
+		};
+
+		elBtnControls.addEventListener("click", toggleDock);
+		elBtnFullscreen.addEventListener("click", () => {
+			toggleFullscreen().catch(() => {});
+		});
+
+		elBtnDistance.addEventListener("click", () => {
+			viewer.measuringTool.startInsertion({
+				showDistances: true,
+				showArea: false,
+				closed: false,
+				name: "Distance",
+			});
+		});
+
+		elBtnArea.addEventListener("click", () => {
+			viewer.measuringTool.startInsertion({
+				showDistances: true,
+				showArea: true,
+				closed: true,
+				name: "Area",
+			});
+		});
+
+		elBtnPoint.addEventListener("click", () => {
+			viewer.measuringTool.startInsertion({
+				showDistances: false,
+				showAngles: false,
+				showCoordinates: true,
+				showArea: false,
+				closed: true,
+				maxMarkers: 1,
+				name: "Point",
+			});
+		});
+
+		elBtnClear.addEventListener("click", () => {
+			viewer.scene.removeAllMeasurements();
 		});
 
 		applyRenderControls();
