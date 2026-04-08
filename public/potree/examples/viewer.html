@@ -31,6 +31,47 @@
 		<div id="potree_render_area"></div>
 		<div id="potree_sidebar_container"> </div>
 	</div>
+	<div id="pc_bottom_dock" role="region" aria-label="Point cloud controls">
+		<div class="pc-group">
+			<div class="pc-title">Render</div>
+			<label>Point Budget <span id="pc_budget_value">10M</span></label>
+			<input id="pc_budget" type="range" min="1000000" max="30000000" step="1000000" value="10000000" />
+			<label>Point Size <span id="pc_size_value">1.0</span></label>
+			<input id="pc_size" type="range" min="0.5" max="4" step="0.1" value="1" />
+		</div>
+		<div class="pc-group">
+			<div class="pc-title">Camera</div>
+			<label>FOV <span id="pc_fov_value">60°</span></label>
+			<input id="pc_fov" type="range" min="35" max="100" step="1" value="60" />
+			<label>Min Node Size <span id="pc_node_value">8</span></label>
+			<input id="pc_node" type="range" min="1" max="40" step="1" value="8" />
+		</div>
+		<div class="pc-group pc-inline">
+			<div class="pc-title">Quality</div>
+			<label class="pc-row">
+				<input id="pc_edl" type="checkbox" />
+				<span>EDL</span>
+			</label>
+			<label class="pc-row">Background
+				<select id="pc_bg">
+					<option value="gradient">Gradient</option>
+					<option value="black">Black</option>
+					<option value="skybox">Skybox</option>
+					<option value="white">White</option>
+				</select>
+			</label>
+			<label class="pc-row">Splat
+				<select id="pc_splat">
+					<option value="standard">Standard</option>
+					<option value="hq" selected>High</option>
+				</select>
+			</label>
+			<div class="pc-actions">
+				<button id="pc_fit" type="button">Fit</button>
+				<button id="pc_reset" type="button">Reset</button>
+			</div>
+		</div>
+	</div>
 
 	<script type="module">
 
@@ -39,38 +80,73 @@
 		viewer.setEDLEnabled(false);
 		viewer.setFOV(60);
 		viewer.loadSettingsFromURL();
-		// After URL params — so script defaults win unless you pass ?pointBudget=…
 		viewer.setPointBudget(10_000_000);
-		// "Appearance → Box" draws octree cells as big cubes; turn off for normal points.
 		viewer.setShowBoundingBox(false);
 		viewer.setBackground("gradient");
-		// Smaller value → refine to finer nodes sooner (pixels on screen).
-		viewer.setMinNodeSize(1);
-
+		viewer.setMinNodeSize(8);
 		viewer.setEDLRadius(1.0);
-		// High splat quality (same as Appearance → Splat Quality → HQ in the sidebar)
 		viewer.useHQ = true;
-
-		viewer.loadGUI(() => {
-			viewer.setLanguage('en');
-			$("#menu_tools").next().show();
-			$("#menu_clipping").next().show();
-			$("#show_bounding_box").prop("checked", false);
-			viewer.setShowBoundingBox(false);
-
-			// Minimal product-focused sidebar: keep appearance + tools, hide less-used sections.
-			["#menu_scene", "#menu_filters", "#menu_about"].forEach((id) => {
-				$(id).hide();
-				$(id).next().hide();
-			});
-			$("#potree_branding").hide();
-			$("#potree_languages").hide();
-
-			viewer.toggleSidebar();
-		});
+		viewer.setDescription("");
 
 		const _params = new URLSearchParams(window.location.search);
 		const pointcloudUrl = _params.get("url");
+		let activeMaterial = null;
+
+		const $ = (id) => document.getElementById(id);
+		const elBudget = $("pc_budget");
+		const elBudgetVal = $("pc_budget_value");
+		const elSize = $("pc_size");
+		const elSizeVal = $("pc_size_value");
+		const elFov = $("pc_fov");
+		const elFovVal = $("pc_fov_value");
+		const elNode = $("pc_node");
+		const elNodeVal = $("pc_node_value");
+		const elEdl = $("pc_edl");
+		const elBg = $("pc_bg");
+		const elSplat = $("pc_splat");
+		const elFit = $("pc_fit");
+		const elReset = $("pc_reset");
+
+		const applyRenderControls = () => {
+			viewer.setPointBudget(parseInt(elBudget.value, 10));
+			elBudgetVal.textContent = `${Math.round(parseInt(elBudget.value, 10) / 1000000)}M`;
+
+			viewer.setFOV(parseInt(elFov.value, 10));
+			elFovVal.textContent = `${elFov.value}°`;
+
+			viewer.setMinNodeSize(parseInt(elNode.value, 10));
+			elNodeVal.textContent = elNode.value;
+
+			viewer.setEDLEnabled(elEdl.checked);
+			viewer.setBackground(elBg.value);
+			viewer.useHQ = elSplat.value === "hq";
+
+			if (activeMaterial) {
+				activeMaterial.size = parseFloat(elSize.value);
+				elSizeVal.textContent = Number(elSize.value).toFixed(1);
+			}
+		};
+
+		[elBudget, elSize, elFov, elNode, elEdl, elBg, elSplat].forEach((el) => {
+			el.addEventListener("input", applyRenderControls);
+			el.addEventListener("change", applyRenderControls);
+		});
+
+		elFit.addEventListener("click", () => viewer.fitToScreen());
+		elReset.addEventListener("click", () => {
+			elBudget.value = "10000000";
+			elSize.value = "1";
+			elFov.value = "60";
+			elNode.value = "8";
+			elEdl.checked = false;
+			elBg.value = "gradient";
+			elSplat.value = "hq";
+			applyRenderControls();
+			viewer.fitToScreen();
+		});
+
+		applyRenderControls();
+
 		if (!pointcloudUrl) {
 			console.error("[Potree] Missing ?url= parameter (metadata.json or cloud.js URL).");
 		} else {
@@ -78,12 +154,14 @@
 				let scene = viewer.scene;
 				let pointcloud = e.pointcloud;
 				let material = pointcloud.material;
+				activeMaterial = material;
 				material.size = 1;
 				material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
 				material.shape = Potree.PointShape.SQUARE;
 				pointcloud.showBoundingBox = false;
 				scene.addPointCloud(pointcloud);
 				viewer.setShowBoundingBox(false);
+				applyRenderControls();
 				viewer.fitToScreen();
 			});
 		}
