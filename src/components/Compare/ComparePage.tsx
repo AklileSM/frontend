@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CompareCalendar from './CompareCalendar';
 import CompareFileExplorer, { type CompareExplorerFileSelection } from './CompareFileExplorer';
 import Compare360Viewer from './Compare360Viewer';
@@ -13,8 +13,13 @@ import {
   type ComparisonReportSide,
   type FieldObservationFlags,
 } from '../../utils/engineeringReportPdf';
-import { readSession } from '../../auth/authSession';
-import { createReportWithPdf } from '../../services/apiClient';
+import { getAccessToken, readSession } from '../../auth/authSession';
+import {
+  createComparisonDraftWithPdf,
+  listComparisonDrafts,
+  publishComparisonDrafts,
+  type ApiComparisonDraft,
+} from '../../services/apiClient';
 import { flagsFromObservationBooleans } from '../../utils/observationReportFlags';
 
 type CompareViewerSide = 'left' | 'right';
@@ -146,9 +151,7 @@ const ComparePage: React.FC = () => {
   const [rightQualityIssue, setRightQualityIssue] = useState(false);
   const [rightDelayed, setRightDelayed] = useState(false);
 
-  const savedReports = useRef<
-    { id: number; title: string; createdAt: string; pdfBlob: Blob }[]
-  >([]);
+  const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[]>([]);
 
   const openPublishModal = () => setIsModalOpen(true);
 
@@ -427,36 +430,65 @@ const ComparePage: React.FC = () => {
     doc.save('Comparison_Report_Notes.pdf');
   };
 
+  const loadComparisonDrafts = useCallback(async () => {
+    try {
+      const drafts = await listComparisonDrafts();
+      setComparisonDrafts(drafts);
+    } catch {
+      setComparisonDrafts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadComparisonDrafts();
+  }, [loadComparisonDrafts]);
+
   const publishReports = async () => {
-    if (savedReports.current.length === 0) {
-      alert('No saved reports to publish.');
+    if (comparisonDrafts.length === 0) {
+      alert('No saved comparison drafts to publish.');
       return;
     }
-  
-    // Create a new PDFDocument for the consolidated report
+
     const consolidatedPdf = await PDFDocument.create();
-  
-    for (const report of savedReports.current) {
-      const existingPdfBytes = await report.pdfBlob.arrayBuffer(); // Convert Blob to ArrayBuffer
-      const existingPdf = await PDFDocument.load(existingPdfBytes); // Load the saved PDF into pdf-lib
-  
-      // Copy pages from the existing PDF to the new consolidated PDF
+
+    for (const draft of comparisonDrafts) {
+      if (!draft.pdf_url) continue;
+      const existingPdfBytes = await fetch(draft.pdf_url, {
+        headers: {
+          Authorization: `Bearer ${getAccessToken() ?? ''}`,
+        },
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load draft PDF (${res.status})`);
+        return res.arrayBuffer();
+      });
+      const existingPdf = await PDFDocument.load(existingPdfBytes);
       const copiedPages = await consolidatedPdf.copyPages(existingPdf, existingPdf.getPageIndices());
       copiedPages.forEach((page) => consolidatedPdf.addPage(page));
     }
-  
-    // Save the consolidated PDF and trigger download
+
     const consolidatedPdfBytes = await consolidatedPdf.save();
     const pdfArrayBuffer = new ArrayBuffer(consolidatedPdfBytes.byteLength);
     new Uint8Array(pdfArrayBuffer).set(consolidatedPdfBytes);
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'Consolidated_Reports.pdf';
-    link.click();
-    
-    savedReports.current = []; 
+
+    const primaryFileId = leftSelectedFileId || rightSelectedFileId || comparisonDrafts[0]?.file_id;
+    if (!primaryFileId) {
+      alert('Cannot publish without a file reference.');
+      return;
+    }
+
+    await publishComparisonDrafts({
+      pdfBlob: blob,
+      fileId: primaryFileId,
+      draftIds: comparisonDrafts.map((d) => d.id),
+      filename: 'Consolidated_Comparison_Report.pdf',
+      manualObservations: null,
+      flags: [],
+    });
+
+    setComparisonDrafts([]);
     setIsModalOpen(false);
+    alert('Published consolidated comparison report.');
   };
   
   const handleModalPublish = async (action: 'save' | 'publish') => {
@@ -541,39 +573,30 @@ const ComparePage: React.FC = () => {
           leftDelayed || rightDelayed,
         );
 
-        await createReportWithPdf({
+        const draft = await createComparisonDraftWithPdf({
           pdfBlob,
           fileId: primaryFileId,
           filename: `FieldObservation_Compare_${ref}.pdf`,
           manualObservations: manualObservations || null,
           flags,
         });
+        setComparisonDrafts((prev) => [...prev, draft]);
       } catch (e) {
         alert(
           e instanceof Error
-            ? `${e.message} The compare report was still generated locally.`
-            : 'Could not save the compare report on the server. The report was still generated locally.',
+            ? e.message
+            : 'Could not save the compare report draft on the server.',
         );
+        return;
       }
     }
 
-    const newReport = {
-      id: savedReports.current.length + 1, // Unique ID
-      title: `Report ${savedReports.current.length + 1}`, // Title
-      createdAt: new Date().toISOString(), // Timestamp
-      pdfBlob, // PDF Blob
-    };
-
-    // Save the report in memory
-    savedReports.current.push(newReport);
-    console.log('Report saved:', newReport);
-
     if (action === 'save') {
-      alert('Report saved successfully!');
+      alert('Comparison draft saved.');
       resetBottomSectionInputs();
       
     } else if (action === 'publish') {
-      publishReports(); // Consolidate all saved reports into one
+      await publishReports();
     }
   };
 
@@ -972,7 +995,7 @@ const ComparePage: React.FC = () => {
                 />
                 <span className="text-gray-700 dark:text-gray-300">Include Notes</span>
               </label> */}
-              <p className='text-lg mb-5'>Publishing will clear all previously saved reports.</p>
+              <p className='text-lg mb-5'>Publishing will clear all saved comparison drafts.</p>
             </div>
   
             {validationMessage && (

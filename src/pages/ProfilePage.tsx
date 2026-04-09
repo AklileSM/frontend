@@ -4,10 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { AuthUser } from '../auth/authSession';
 import {
+  deleteComparisonDraft,
   deleteFileAsset,
   deleteReport,
+  listComparisonDrafts,
   listMyUploads,
   listReports,
+  type ApiComparisonDraft,
   type ApiMyUpload,
   type ApiReport,
 } from '../services/apiClient';
@@ -409,8 +412,10 @@ const ProfilePage: React.FC = () => {
 
   const [reports, setReports] = useState<ApiReport[] | null>(null);
   const [uploads, setUploads] = useState<ApiMyUpload[] | null>(null);
+  const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [draftsError, setDraftsError] = useState<string | null>(null);
   const [uploadsError, setUploadsError] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const [reportPendingDelete, setReportPendingDelete] = useState<ApiReport | null>(null);
@@ -418,9 +423,11 @@ const ProfilePage: React.FC = () => {
   const [uploadPendingDelete, setUploadPendingDelete] = useState<ApiMyUpload | null>(null);
   const [uploadDeleteModalError, setUploadDeleteModalError] = useState<string | null>(null);
   const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
+    setDraftsError(null);
     setUploadsError(null);
     setLoading(true);
     try {
@@ -432,6 +439,14 @@ const ProfilePage: React.FC = () => {
       setUploads(null);
       setLoading(false);
       return;
+    }
+
+    try {
+      const drafts = await listComparisonDrafts();
+      setComparisonDrafts(drafts);
+    } catch (e) {
+      setComparisonDrafts([]);
+      setDraftsError(e instanceof Error ? e.message : 'Could not load comparison drafts.');
     }
 
     if (!showUploads) {
@@ -496,6 +511,18 @@ const ProfilePage: React.FC = () => {
       setUploadDeleteModalError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
       setDeletingUploadId(null);
+    }
+  };
+
+  const confirmDeleteDraft = async (draftId: string) => {
+    setDeletingDraftId(draftId);
+    try {
+      await deleteComparisonDraft(draftId);
+      setComparisonDrafts((prev) => (prev ? prev.filter((x) => x.id !== draftId) : null));
+    } catch (e) {
+      setDraftsError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeletingDraftId(null);
     }
   };
 
@@ -659,6 +686,116 @@ const ProfilePage: React.FC = () => {
                           setReportPendingDelete(r);
                         }}
                       />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="mb-10">
+        <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Comparison drafts</h3>
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          Saved compare drafts. Publishing from Compare stitches these into one report and clears them.
+        </p>
+
+        {draftsError ? (
+          <div
+            className="mb-4 rounded-lg border border-danger bg-danger bg-opacity-10 px-4 py-3 text-sm text-danger"
+            role="alert"
+          >
+            {draftsError}
+          </div>
+        ) : null}
+
+        {loading && comparisonDrafts === null ? (
+          <p className="text-gray-600 dark:text-gray-300">Loading comparison drafts…</p>
+        ) : null}
+
+        {!loading && comparisonDrafts && comparisonDrafts.length === 0 ? (
+          <div className="rounded-lg border border-stroke bg-gray-50 p-8 text-center dark:border-strokedark dark:bg-gray-800">
+            <p className="text-gray-700 dark:text-gray-200">No comparison drafts saved.</p>
+          </div>
+        ) : null}
+
+        {comparisonDrafts && comparisonDrafts.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border border-stroke dark:border-strokedark">
+            <table className="min-w-full divide-y divide-stroke dark:divide-strokedark">
+              <thead className="bg-gray-50 dark:bg-meta-4">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Saved
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    File
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Notes
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Flags
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stroke bg-white dark:divide-strokedark dark:bg-boxdark">
+                {comparisonDrafts.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-meta-4">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+                      {formatWhen(d.created_at)}
+                    </td>
+                    <td className="max-w-[140px] px-4 py-3">
+                      <span className="font-mono text-xs text-gray-700 dark:text-gray-300" title={d.file_id}>
+                        {d.file_id.slice(0, 8)}…
+                      </span>
+                    </td>
+                    <td className="max-w-md px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      {truncate(d.manual_observations, 120)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(d.flags ?? []).length === 0 ? (
+                          <span className="text-xs text-gray-400">—</span>
+                        ) : (
+                          d.flags.map((f) => (
+                            <span
+                              key={f}
+                              className="rounded bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/25"
+                            >
+                              {f}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={!d.pdf_url}
+                        onClick={() =>
+                          navigate('/pdfViewer', {
+                            state: {
+                              pdfUrl: d.pdf_url!,
+                              title: `Comparison draft ${d.id.slice(0, 8)}…`,
+                            },
+                          })
+                        }
+                        className="mr-2 rounded bg-gray-200 px-3 py-1 text-xs font-medium text-gray-800 disabled:opacity-50 dark:bg-meta-4 dark:text-gray-200"
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingDraftId === d.id}
+                        onClick={() => void confirmDeleteDraft(d.id)}
+                        className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {deletingDraftId === d.id ? 'Deleting…' : 'Delete'}
+                      </button>
                     </td>
                   </tr>
                 ))}
