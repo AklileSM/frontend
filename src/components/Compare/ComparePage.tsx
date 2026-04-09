@@ -447,7 +447,9 @@ const ComparePage: React.FC = () => {
   
     // Save the consolidated PDF and trigger download
     const consolidatedPdfBytes = await consolidatedPdf.save();
-    const blob = new Blob([consolidatedPdfBytes], { type: 'application/pdf' });
+    const pdfArrayBuffer = new ArrayBuffer(consolidatedPdfBytes.byteLength);
+    new Uint8Array(pdfArrayBuffer).set(consolidatedPdfBytes);
+    const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'Consolidated_Reports.pdf';
