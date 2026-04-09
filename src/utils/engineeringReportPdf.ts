@@ -281,7 +281,6 @@ export type ComparisonReportSide = {
   fileName: string;
   roomOrZone: string;
   captureDate: string;
-  observationText: string;
   notes: string;
   flags: FieldObservationFlags;
 };
@@ -360,14 +359,6 @@ export function buildComparisonFieldObservationPdf(input: {
     writeParagraph('No file metadata was attached for this comparison issue.', 10, 'italic');
   }
 
-  writeSectionHeading(String(sectionNo++), 'RECORDED OBSERVATIONS');
-  if (input.left) {
-    writeParagraph(`Reference A — narrative: ${input.left.observationText || '—'}`, 10, 'normal');
-  }
-  if (input.right) {
-    writeParagraph(`Reference B — narrative: ${input.right.observationText || '—'}`, 10, 'normal');
-  }
-
   writeSectionHeading(String(sectionNo++), "AUTHOR COMMENTS — DUAL VIEW");
   if (input.left) {
     writeParagraph(`Reference A — notes: ${input.left.notes || '—'}`, 10, 'normal');
@@ -391,7 +382,7 @@ export function buildComparisonFieldObservationPdf(input: {
   writeSectionHeading(String(sectionNo++), 'LIMITATIONS');
   writeParagraph(
     'Comparison is limited to viewpoints and resolutions available in the viewer. Hidden work, temporary coverings, and lighting differences may affect interpretation. ' +
-      'Any AI-assisted narrative must be reviewed by qualified personnel.',
+      'Observations must be reviewed by qualified personnel.',
     10,
     'normal',
   );

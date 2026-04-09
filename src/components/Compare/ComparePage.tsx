@@ -470,7 +470,6 @@ const ComparePage: React.FC = () => {
       meta: { roomLabel: string } | null,
       notes: string,
       flags: FieldObservationFlags,
-      observationPlaceholder: string,
     ): ComparisonReportSide | null => {
       if (!details) return null;
       const m = details.fileName.match(/room(\d+)/i);
@@ -481,7 +480,6 @@ const ComparePage: React.FC = () => {
         fileName: details.fileName,
         roomOrZone: room,
         captureDate: details.date,
-        observationText: observationPlaceholder,
         notes,
         flags,
       };
@@ -501,7 +499,6 @@ const ComparePage: React.FC = () => {
           qualityConcern: leftQualityIssue,
           safetyConcern: leftSafetyIssue,
         },
-        'AI-assisted narrative for Reference A — connect to analysis export when available.',
       ),
       right: mkSide(
         rightImageDetails,
@@ -512,7 +509,6 @@ const ComparePage: React.FC = () => {
           qualityConcern: rightQualityIssue,
           safetyConcern: rightSafetyIssue,
         },
-        'AI-assisted narrative for Reference B — connect to analysis export when available.',
       ),
       annexLeft: leftAdditionalScreenshotNotes,
       annexRight: rightAdditionalScreenshotNotes,
@@ -547,7 +543,6 @@ const ComparePage: React.FC = () => {
           pdfBlob,
           fileId: primaryFileId,
           filename: `FieldObservation_Compare_${ref}.pdf`,
-          aiDescription: null,
           manualObservations: manualObservations || null,
           flags,
         });
