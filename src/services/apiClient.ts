@@ -496,6 +496,10 @@ export interface ApiComparisonDraft {
   created_at: string;
 }
 
+export interface ApiComparisonDraftDetail extends ApiComparisonDraft {
+  state_json: Record<string, unknown> | null;
+}
+
 export function listReports(): Promise<ApiReport[]> {
   return getJson<ApiReport[]>('/reports/');
 }
@@ -575,6 +579,10 @@ export function listComparisonDrafts(): Promise<ApiComparisonDraft[]> {
   return getJson<ApiComparisonDraft[]>('/reports/comparison-drafts');
 }
 
+export function getComparisonDraft(draftId: string): Promise<ApiComparisonDraftDetail> {
+  return getJson<ApiComparisonDraftDetail>(`/reports/comparison-drafts/${encodeURIComponent(draftId)}`);
+}
+
 export async function deleteComparisonDraft(draftId: string): Promise<void> {
   const response = await apiFetch(`/reports/comparison-drafts/${encodeURIComponent(draftId)}`, { method: 'DELETE' }, true);
   if (!response.ok) {
@@ -588,7 +596,8 @@ export async function createComparisonDraftWithPdf(params: {
   filename?: string;
   manualObservations?: string | null;
   flags?: string[];
-}): Promise<ApiComparisonDraft> {
+  state: Record<string, unknown>;
+}): Promise<ApiComparisonDraftDetail> {
   const token = getAccessToken();
   if (!token) {
     throw new Error('Sign in to store comparison drafts.');
@@ -600,6 +609,7 @@ export async function createComparisonDraftWithPdf(params: {
     form.append('manual_observations', params.manualObservations);
   }
   form.append('flags_json', JSON.stringify(params.flags ?? []));
+  form.append('state_json', JSON.stringify(params.state));
 
   const response = await fetch(`${API_BASE}/reports/comparison-drafts`, {
     method: 'POST',
@@ -609,7 +619,43 @@ export async function createComparisonDraftWithPdf(params: {
   if (!response.ok) {
     throw new Error(await parseApiError(response));
   }
-  return response.json() as Promise<ApiComparisonDraft>;
+  return response.json() as Promise<ApiComparisonDraftDetail>;
+}
+
+export async function updateComparisonDraftWithPdf(params: {
+  draftId: string;
+  pdfBlob: Blob;
+  fileId?: string;
+  filename?: string;
+  manualObservations?: string | null;
+  flags?: string[];
+  state: Record<string, unknown>;
+}): Promise<ApiComparisonDraftDetail> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Sign in to update comparison drafts.');
+  }
+  const form = new FormData();
+  form.append('file', params.pdfBlob, params.filename ?? 'comparison-draft.pdf');
+  if (params.fileId) {
+    form.append('file_id', params.fileId);
+  }
+  form.append('manual_observations', params.manualObservations ?? '');
+  form.append('flags_json', JSON.stringify(params.flags ?? []));
+  form.append('state_json', JSON.stringify(params.state));
+
+  const response = await fetch(
+    `${API_BASE}/reports/comparison-drafts/${encodeURIComponent(params.draftId)}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiComparisonDraftDetail>;
 }
 
 export async function publishComparisonDrafts(params: {

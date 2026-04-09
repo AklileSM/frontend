@@ -790,6 +790,13 @@ const ProfilePage: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={() => navigate(`/Compare?draft=${encodeURIComponent(d.id)}`)}
+                        className="mr-2 rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:opacity-90"
+                      >
+                        Edit in Compare
+                      </button>
+                      <button
+                        type="button"
                         disabled={deletingDraftId === d.id}
                         onClick={() => void confirmDeleteDraft(d.id)}
                         className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"

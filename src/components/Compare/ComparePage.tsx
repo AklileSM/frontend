@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CompareCalendar from './CompareCalendar';
 import CompareFileExplorer, { type CompareExplorerFileSelection } from './CompareFileExplorer';
 import Compare360Viewer from './Compare360Viewer';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import ComparePCDViewer from './ComparePCDViewer';
 import { PDFDocument } from 'pdf-lib'; // Install this with npm
@@ -15,14 +15,55 @@ import {
 } from '../../utils/engineeringReportPdf';
 import { getAccessToken, readSession } from '../../auth/authSession';
 import {
+  API_BASE,
   createComparisonDraftWithPdf,
+  getComparisonDraft,
   listComparisonDrafts,
   publishComparisonDrafts,
+  updateComparisonDraftWithPdf,
   type ApiComparisonDraft,
 } from '../../services/apiClient';
 import { flagsFromObservationBooleans } from '../../utils/observationReportFlags';
 
 type CompareViewerSide = 'left' | 'right';
+
+type CompareDraftSideV1 = {
+  captureDate: string;
+  fileId: string;
+  fileUrl: string;
+  displayFileName: string;
+  roomLabel: string;
+  mediaType?: string;
+  viewerKind: '360' | 'pcd';
+};
+
+type CompareDraftStateV1 = {
+  version: 1;
+  left: CompareDraftSideV1 | null;
+  right: CompareDraftSideV1 | null;
+  leftNotes: string;
+  rightNotes: string;
+  leftAnnex: { images: string[]; text: string };
+  rightAnnex: { images: string[]; text: string };
+  leftFlags: { safety: boolean; quality: boolean; delayed: boolean };
+  rightFlags: { safety: boolean; quality: boolean; delayed: boolean };
+};
+
+function isCompareDraftStateV1(x: unknown): x is CompareDraftStateV1 {
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    (x as { version?: unknown }).version === 1 &&
+    typeof (x as { leftNotes?: unknown }).leftNotes === 'string' &&
+    typeof (x as { rightNotes?: unknown }).rightNotes === 'string'
+  );
+}
+
+function normalizeCompareDate(raw: string): string {
+  if (!raw) return '';
+  return raw.length >= 10 ? raw.slice(0, 10) : raw;
+}
+
 type CameraSyncState = {
   position: [number, number, number];
   target: [number, number, number];
@@ -37,6 +78,8 @@ const ComparePage: React.FC = () => {
     [dataByDate],
   );
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftQueryId = searchParams.get('draft');
 
   const [leftSelectedDate, setLeftSelectedDate] = useState<string | null>(null);
   const [rightSelectedDate, setRightSelectedDate] = useState<string | null>(null);
@@ -57,11 +100,13 @@ const ComparePage: React.FC = () => {
     displayFileName: string;
     roomLabel: string;
     captureDate: string;
+    mediaType?: string;
   } | null>(null);
   const [rightViewerMeta, setRightViewerMeta] = useState<{
     displayFileName: string;
     roomLabel: string;
     captureDate: string;
+    mediaType?: string;
   } | null>(null);
 
   const [showLeftPCDViewer, setShowLeftPCDViewer] = useState(false);
@@ -152,8 +197,88 @@ const ComparePage: React.FC = () => {
   const [rightDelayed, setRightDelayed] = useState(false);
 
   const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[]>([]);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   const openPublishModal = () => setIsModalOpen(true);
+
+  const buildCompareDraftState = useCallback((): CompareDraftStateV1 => {
+    const sideSnapshot = (
+      fileId: string | null,
+      fileUrl: string | null,
+      meta: {
+        displayFileName: string;
+        roomLabel: string;
+        captureDate: string;
+        mediaType?: string;
+      } | null,
+      selectedDate: string | null,
+      usePcd: boolean,
+    ): CompareDraftSideV1 | null => {
+      if (!fileId) return null;
+      return {
+        captureDate: selectedDate || meta?.captureDate || '',
+        fileId,
+        fileUrl: fileUrl || '',
+        displayFileName: meta?.displayFileName || '',
+        roomLabel: meta?.roomLabel || '',
+        mediaType: meta?.mediaType,
+        viewerKind: usePcd ? 'pcd' : '360',
+      };
+    };
+
+    return {
+      version: 1,
+      left: sideSnapshot(
+        leftSelectedFileId,
+        leftSelectedFile,
+        leftViewerMeta,
+        leftSelectedDate,
+        showLeftPCDViewer,
+      ),
+      right: sideSnapshot(
+        rightSelectedFileId,
+        rightSelectedFile,
+        rightViewerMeta,
+        rightSelectedDate,
+        showRightPCDViewer,
+      ),
+      leftNotes,
+      rightNotes,
+      leftAnnex: { ...leftAdditionalScreenshotNotes },
+      rightAnnex: { ...rightAdditionalScreenshotNotes },
+      leftFlags: {
+        safety: leftSafetyIssue,
+        quality: leftQualityIssue,
+        delayed: leftDelayed,
+      },
+      rightFlags: {
+        safety: rightSafetyIssue,
+        quality: rightQualityIssue,
+        delayed: rightDelayed,
+      },
+    };
+  }, [
+    leftSelectedFileId,
+    leftSelectedFile,
+    leftViewerMeta,
+    leftSelectedDate,
+    showLeftPCDViewer,
+    rightSelectedFileId,
+    rightSelectedFile,
+    rightViewerMeta,
+    rightSelectedDate,
+    showRightPCDViewer,
+    leftNotes,
+    rightNotes,
+    leftAdditionalScreenshotNotes,
+    rightAdditionalScreenshotNotes,
+    leftSafetyIssue,
+    leftQualityIssue,
+    leftDelayed,
+    rightSafetyIssue,
+    rightQualityIssue,
+    rightDelayed,
+  ]);
 
   const handleImageClick = (image: string) => {
     setSelectedImage(image);
@@ -343,6 +468,7 @@ const ComparePage: React.FC = () => {
       displayFileName: sel.displayFileName,
       roomLabel: sel.roomLabel,
       captureDate: sel.captureDate,
+      mediaType: sel.mediaType,
     });
 
     const pathForExt = fileUrl.split('?')[0].toLowerCase();
@@ -390,6 +516,7 @@ const ComparePage: React.FC = () => {
       displayFileName: sel.displayFileName,
       roomLabel: sel.roomLabel,
       captureDate: sel.captureDate,
+      mediaType: sel.mediaType,
     });
 
     const pathForExt = fileUrl.split('?')[0].toLowerCase();
@@ -443,6 +570,138 @@ const ComparePage: React.FC = () => {
     void loadComparisonDrafts();
   }, [loadComparisonDrafts]);
 
+  useEffect(() => {
+    if (!draftQueryId) {
+      setEditingDraftId(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const resolveFileUrl = (fileUrl: string, fileId: string): string => {
+      const u = (fileUrl || '').trim();
+      if (u) return u;
+      return `${API_BASE}/files/${fileId}/content`;
+    };
+
+    const applySide = (side: CompareDraftSideV1 | null, which: CompareViewerSide) => {
+      if (!side) {
+        if (which === 'left') {
+          setLeftSelectedDate(null);
+          setLeftSelectedFile(null);
+          setLeftSelectedFileId(null);
+          setLeftViewerMeta(null);
+          setLeftImageDetails(null);
+          setLeftHDImageUrl(null);
+          setShowLeft360Viewer(false);
+          setShowLeftPCDViewer(false);
+          setShowLeftCalendar(true);
+        } else {
+          setRightSelectedDate(null);
+          setRightSelectedFile(null);
+          setRightSelectedFileId(null);
+          setRightViewerMeta(null);
+          setRightImageDetails(null);
+          setRightHDImageUrl(null);
+          setShowRight360Viewer(false);
+          setShowRightPCDViewer(false);
+          setShowRightCalendar(true);
+        }
+        return;
+      }
+
+      const cap = normalizeCompareDate(side.captureDate);
+      const url = resolveFileUrl(side.fileUrl, side.fileId);
+      const usePcd =
+        side.viewerKind === 'pcd' ||
+        side.mediaType === 'pointcloud' ||
+        /\.(glb|obj|e57)(\?|$)/i.test(url.split('?')[0]);
+
+      if (which === 'left') {
+        setLeftSelectedDate(cap || null);
+        setShowLeftCalendar(false);
+        setLeftSelectedFile(url);
+        setLeftSelectedFileId(side.fileId);
+        setLeftViewerMeta({
+          displayFileName: side.displayFileName,
+          roomLabel: side.roomLabel,
+          captureDate: side.captureDate || cap,
+          mediaType: side.mediaType,
+        });
+        setLeftImageDetails({
+          fileName: side.displayFileName,
+          date: side.captureDate || cap,
+        });
+        setLeftHDImageUrl(url);
+        setShowLeftPCDViewer(usePcd);
+        setShowLeft360Viewer(!usePcd);
+      } else {
+        setRightSelectedDate(cap || null);
+        setShowRightCalendar(false);
+        setRightSelectedFile(url);
+        setRightSelectedFileId(side.fileId);
+        setRightViewerMeta({
+          displayFileName: side.displayFileName,
+          roomLabel: side.roomLabel,
+          captureDate: side.captureDate || cap,
+          mediaType: side.mediaType,
+        });
+        setRightImageDetails({
+          fileName: side.displayFileName,
+          date: side.captureDate || cap,
+        });
+        setRightHDImageUrl(url);
+        setShowRightPCDViewer(usePcd);
+        setShowRight360Viewer(!usePcd);
+      }
+    };
+
+    void (async () => {
+      try {
+        const d = await getComparisonDraft(draftQueryId);
+        if (cancelled) return;
+        const raw = d.state_json;
+        if (!isCompareDraftStateV1(raw)) {
+          alert(
+            'This draft has no saved comparison session (older drafts only store the PDF). Open the PDF from your profile, or start a new comparison.',
+          );
+          setEditingDraftId(null);
+          return;
+        }
+        const s = raw;
+        setLeftNotes(s.leftNotes);
+        setRightNotes(s.rightNotes);
+        setLeftAdditionalScreenshotNotes({ ...s.leftAnnex });
+        setRightAdditionalScreenshotNotes({ ...s.rightAnnex });
+        setLeftSafetyIssue(s.leftFlags.safety);
+        setLeftQualityIssue(s.leftFlags.quality);
+        setLeftDelayed(s.leftFlags.delayed);
+        setRightSafetyIssue(s.rightFlags.safety);
+        setRightQualityIssue(s.rightFlags.quality);
+        setRightDelayed(s.rightFlags.delayed);
+        applySide(s.left, 'left');
+        applySide(s.right, 'right');
+        setIsBottomSectionVisible(true);
+        setEditingDraftId(d.id);
+        try {
+          const drafts = await listComparisonDrafts();
+          if (!cancelled) setComparisonDrafts(drafts);
+        } catch {
+          if (!cancelled) setComparisonDrafts([]);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          alert(e instanceof Error ? e.message : 'Could not load comparison draft.');
+          setEditingDraftId(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draftQueryId]);
+
   const publishReports = async () => {
     if (comparisonDrafts.length === 0) {
       alert('No saved comparison drafts to publish.');
@@ -488,6 +747,8 @@ const ComparePage: React.FC = () => {
 
     setComparisonDrafts([]);
     setIsModalOpen(false);
+    setEditingDraftId(null);
+    navigate('/Compare', { replace: true });
     alert('Published consolidated comparison report.');
   };
   
@@ -573,14 +834,32 @@ const ComparePage: React.FC = () => {
           leftDelayed || rightDelayed,
         );
 
-        const draft = await createComparisonDraftWithPdf({
-          pdfBlob,
-          fileId: primaryFileId,
-          filename: `FieldObservation_Compare_${ref}.pdf`,
-          manualObservations: manualObservations || null,
-          flags,
-        });
-        setComparisonDrafts((prev) => [...prev, draft]);
+        const state = buildCompareDraftState();
+
+        if (editingDraftId) {
+          const updated = await updateComparisonDraftWithPdf({
+            draftId: editingDraftId,
+            pdfBlob,
+            fileId: primaryFileId,
+            filename: `FieldObservation_Compare_${ref}.pdf`,
+            manualObservations: manualObservations || '',
+            flags,
+            state,
+          });
+          setComparisonDrafts((prev) =>
+            prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)),
+          );
+        } else {
+          const draft = await createComparisonDraftWithPdf({
+            pdfBlob,
+            fileId: primaryFileId,
+            filename: `FieldObservation_Compare_${ref}.pdf`,
+            manualObservations: manualObservations || null,
+            flags,
+            state,
+          });
+          setComparisonDrafts((prev) => [...prev, draft]);
+        }
       } catch (e) {
         alert(
           e instanceof Error
@@ -592,9 +871,10 @@ const ComparePage: React.FC = () => {
     }
 
     if (action === 'save') {
-      alert('Comparison draft saved.');
-      resetBottomSectionInputs();
-      
+      alert(editingDraftId ? 'Comparison draft updated.' : 'Comparison draft saved.');
+      if (!editingDraftId) {
+        resetBottomSectionInputs();
+      }
     } else if (action === 'publish') {
       await publishReports();
     }
@@ -625,7 +905,15 @@ const ComparePage: React.FC = () => {
     <div className="w-full max-w-screen-3xl bg-white rounded-md shadow-default dark:bg-boxdark dark:text-white p-4 mx-auto mt-6">
       
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold text-black dark:text-white">Compare View</h1>
+        <div>
+          <h1 className="text-xl font-bold text-black dark:text-white">Compare View</h1>
+          {editingDraftId ? (
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+              Editing comparison draft{' '}
+              <span className="font-mono">{editingDraftId.slice(0, 8)}…</span> — Save updates this draft.
+            </p>
+          ) : null}
+        </div>
         
         <button
           onClick={() =>setIsBackModalOpen(true)}
