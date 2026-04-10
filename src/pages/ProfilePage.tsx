@@ -78,14 +78,6 @@ function comparisonDraftDisplayName(d: ApiComparisonDraft): string {
   return `${d.file_id.slice(0, 8)}…`;
 }
 
-function comparisonDraftDownloadFilename(d: ApiComparisonDraft): string {
-  const t = d.label?.trim();
-  const base = t
-    ? t.replace(/[<>:"/\\|?*]+/g, '_').replace(/\s+/g, '_').slice(0, 120)
-    : `comparison-draft-${d.id.slice(0, 8)}`;
-  return `${base}.pdf`;
-}
-
 function formatWhen(iso: string): string {
   try {
     const d = new Date(iso);
@@ -344,16 +336,10 @@ function ReportActionsMenu({
 }
 
 function ComparisonDraftActionsMenu({
-  draft,
-  onOpenPdf,
-  onDownload,
   onEditCompare,
   onRequestDelete,
   busy,
 }: {
-  draft: ApiComparisonDraft;
-  onOpenPdf: () => void;
-  onDownload: () => void;
   onEditCompare: () => void;
   onRequestDelete: () => void;
   busy: boolean;
@@ -396,30 +382,6 @@ function ComparisonDraftActionsMenu({
         <button
           type="button"
           role="menuitem"
-          disabled={!draft.pdf_url || busy}
-          onClick={() => {
-            if (draft.pdf_url) onOpenPdf();
-            setOpen(false);
-          }}
-          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-        >
-          Open PDF
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          disabled={!draft.pdf_url || busy}
-          onClick={() => {
-            if (draft.pdf_url) onDownload();
-            setOpen(false);
-          }}
-          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
-        >
-          Download
-        </button>
-        <button
-          type="button"
-          role="menuitem"
           disabled={busy}
           onClick={() => {
             onEditCompare();
@@ -427,7 +389,7 @@ function ComparisonDraftActionsMenu({
           }}
           className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-meta-4"
         >
-          Edit in Compare
+          Open in Compare
         </button>
         <button
           type="button"
@@ -895,19 +857,7 @@ const ProfilePage: React.FC = () => {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <ComparisonDraftActionsMenu
-                        draft={d}
                         busy={deletingDraftId === d.id}
-                        onOpenPdf={() =>
-                          navigate('/pdfViewer', {
-                            state: {
-                              pdfUrl: d.pdf_url!,
-                              title: comparisonDraftDisplayName(d),
-                            },
-                          })
-                        }
-                        onDownload={() =>
-                          void triggerFileDownload(d.pdf_url!, comparisonDraftDownloadFilename(d))
-                        }
                         onEditCompare={() =>
                           navigate(`/Compare?draft=${encodeURIComponent(d.id)}`)
                         }

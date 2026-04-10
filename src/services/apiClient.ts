@@ -592,10 +592,9 @@ export async function deleteComparisonDraft(draftId: string): Promise<void> {
   }
 }
 
-export async function createComparisonDraftWithPdf(params: {
-  pdfBlob: Blob;
+/** Save comparison draft as JSON only (no per-draft PDF; PDFs are built when publishing). */
+export async function createComparisonDraft(params: {
   fileId: string;
-  filename?: string;
   manualObservations?: string | null;
   flags?: string[];
   state: Record<string, unknown>;
@@ -604,19 +603,18 @@ export async function createComparisonDraftWithPdf(params: {
   if (!token) {
     throw new Error('Sign in to store comparison drafts.');
   }
-  const form = new FormData();
-  form.append('file', params.pdfBlob, params.filename ?? 'comparison-draft.pdf');
-  form.append('file_id', params.fileId);
-  if (params.manualObservations != null && params.manualObservations !== '') {
-    form.append('manual_observations', params.manualObservations);
-  }
-  form.append('flags_json', JSON.stringify(params.flags ?? []));
-  form.append('state_json', JSON.stringify(params.state));
-
   const response = await fetch(`${API_BASE}/reports/comparison-drafts`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      file_id: params.fileId,
+      manual_observations: params.manualObservations ?? null,
+      flags: params.flags ?? [],
+      state: params.state,
+    }),
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response));
@@ -624,11 +622,9 @@ export async function createComparisonDraftWithPdf(params: {
   return response.json() as Promise<ApiComparisonDraftDetail>;
 }
 
-export async function updateComparisonDraftWithPdf(params: {
+export async function updateComparisonDraft(params: {
   draftId: string;
-  pdfBlob: Blob;
   fileId?: string;
-  filename?: string;
   manualObservations?: string | null;
   flags?: string[];
   state: Record<string, unknown>;
@@ -637,21 +633,20 @@ export async function updateComparisonDraftWithPdf(params: {
   if (!token) {
     throw new Error('Sign in to update comparison drafts.');
   }
-  const form = new FormData();
-  form.append('file', params.pdfBlob, params.filename ?? 'comparison-draft.pdf');
-  if (params.fileId) {
-    form.append('file_id', params.fileId);
-  }
-  form.append('manual_observations', params.manualObservations ?? '');
-  form.append('flags_json', JSON.stringify(params.flags ?? []));
-  form.append('state_json', JSON.stringify(params.state));
-
   const response = await fetch(
     `${API_BASE}/reports/comparison-drafts/${encodeURIComponent(params.draftId)}`,
     {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file_id: params.fileId ?? null,
+        manual_observations: params.manualObservations ?? null,
+        flags: params.flags ?? [],
+        state: params.state,
+      }),
     },
   );
   if (!response.ok) {

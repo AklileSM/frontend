@@ -8,56 +8,24 @@ import ComparePCDViewer from './ComparePCDViewer';
 import { PDFDocument } from 'pdf-lib'; // Install this with npm
 import { useCaptureDatesSummary } from '../../hooks/useCaptureDatesSummary';
 import {
-  buildComparisonFieldObservationPdf,
-  fieldObservationReportReference,
-  type ComparisonReportSide,
-  type FieldObservationFlags,
-} from '../../utils/engineeringReportPdf';
+  buildCompareDraftPdfBlob,
+  isCompareDraftStateV1,
+  type CompareDraftSideV1,
+  type CompareDraftStateV1,
+} from '../../utils/compareDraftPdfFromState';
 import { getAccessToken, readSession } from '../../auth/authSession';
 import {
   API_BASE,
-  createComparisonDraftWithPdf,
+  createComparisonDraft,
   getComparisonDraft,
   listComparisonDrafts,
   publishComparisonDrafts,
-  updateComparisonDraftWithPdf,
+  updateComparisonDraft,
   type ApiComparisonDraft,
 } from '../../services/apiClient';
 import { flagsFromObservationBooleans } from '../../utils/observationReportFlags';
 
 type CompareViewerSide = 'left' | 'right';
-
-type CompareDraftSideV1 = {
-  captureDate: string;
-  fileId: string;
-  fileUrl: string;
-  displayFileName: string;
-  roomLabel: string;
-  mediaType?: string;
-  viewerKind: '360' | 'pcd';
-};
-
-type CompareDraftStateV1 = {
-  version: 1;
-  left: CompareDraftSideV1 | null;
-  right: CompareDraftSideV1 | null;
-  leftNotes: string;
-  rightNotes: string;
-  leftAnnex: { images: string[]; text: string };
-  rightAnnex: { images: string[]; text: string };
-  leftFlags: { safety: boolean; quality: boolean; delayed: boolean };
-  rightFlags: { safety: boolean; quality: boolean; delayed: boolean };
-};
-
-function isCompareDraftStateV1(x: unknown): x is CompareDraftStateV1 {
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    (x as { version?: unknown }).version === 1 &&
-    typeof (x as { leftNotes?: unknown }).leftNotes === 'string' &&
-    typeof (x as { rightNotes?: unknown }).rightNotes === 'string'
-  );
-}
 
 function normalizeCompareDate(raw: string): string {
   if (!raw) return '';
@@ -773,27 +741,44 @@ const ComparePage: React.FC = () => {
       return;
     }
 
-    const missingPdf = orderedDrafts.filter((d) => !d.pdf_url);
-    if (missingPdf.length > 0) {
-      showCompareNotice(
-        'One or more selected drafts have no PDF. Save each draft first.',
-        'error',
-      );
-      return;
-    }
+    const session = readSession();
+    const projectName =
+      typeof import.meta.env.VITE_PROJECT_NAME === 'string' && import.meta.env.VITE_PROJECT_NAME.trim()
+        ? import.meta.env.VITE_PROJECT_NAME.trim()
+        : 'A6 Stern';
+    const preparedBy = session?.user?.username ?? 'Not signed in';
 
     const consolidatedPdf = await PDFDocument.create();
 
     for (const draft of orderedDrafts) {
-      if (!draft.pdf_url) continue;
-      const existingPdfBytes = await fetch(draft.pdf_url, {
-        headers: {
-          Authorization: `Bearer ${getAccessToken() ?? ''}`,
-        },
-      }).then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load draft PDF (${res.status})`);
-        return res.arrayBuffer();
-      });
+      let existingPdfBytes: ArrayBuffer;
+      if (draft.pdf_url) {
+        existingPdfBytes = await fetch(draft.pdf_url, {
+          headers: {
+            Authorization: `Bearer ${getAccessToken() ?? ''}`,
+          },
+        }).then(async (res) => {
+          if (!res.ok) throw new Error(`Failed to load draft PDF (${res.status})`);
+          return res.arrayBuffer();
+        });
+      } else {
+        const detail = await getComparisonDraft(draft.id);
+        const raw = detail.state_json;
+        if (!isCompareDraftStateV1(raw)) {
+          showCompareNotice(
+            `Draft "${draft.label?.trim() || draft.id.slice(0, 8) + '…'}" has no saved comparison data. Open it in Compare and save again, or remove it from the list.`,
+            'error',
+            'Cannot publish',
+          );
+          return;
+        }
+        const blob = buildCompareDraftPdfBlob(raw, {
+          projectName,
+          preparedBy,
+          issueDate: new Date(draft.created_at),
+        });
+        existingPdfBytes = await blob.arrayBuffer();
+      }
       const existingPdf = await PDFDocument.load(existingPdfBytes);
       const copiedPages = await consolidatedPdf.copyPages(existingPdf, existingPdf.getPageIndices());
       copiedPages.forEach((page) => consolidatedPdf.addPage(page));
@@ -849,64 +834,6 @@ const ComparePage: React.FC = () => {
     setSaveDraftKind(wasEditingDraft ? 'update' : 'create');
     setSaveDraftBusy(true);
     try {
-    const session = readSession();
-    const ref = fieldObservationReportReference();
-    const projectName =
-      typeof import.meta.env.VITE_PROJECT_NAME === 'string' && import.meta.env.VITE_PROJECT_NAME.trim()
-        ? import.meta.env.VITE_PROJECT_NAME.trim()
-        : 'A6 Stern';
-
-    const mkSide = (
-      details: { fileName: string; date: string } | null,
-      meta: { roomLabel: string } | null,
-      notes: string,
-      flags: FieldObservationFlags,
-    ): ComparisonReportSide | null => {
-      if (!details) return null;
-      const m = details.fileName.match(/room(\d+)/i);
-      const room =
-        (meta?.roomLabel && meta.roomLabel.trim()) ||
-        (m ? `Room ${m[1]}` : '—');
-      return {
-        fileName: details.fileName,
-        roomOrZone: room,
-        captureDate: details.date,
-        notes,
-        flags,
-      };
-    };
-
-    const doc = buildComparisonFieldObservationPdf({
-      projectName,
-      preparedBy: session?.user?.username ?? 'Not signed in',
-      reportReference: ref,
-      issueDate: new Date(),
-      left: mkSide(
-        leftImageDetails,
-        leftViewerMeta,
-        leftNotes,
-        {
-          scheduleDelayed: leftDelayed,
-          qualityConcern: leftQualityIssue,
-          safetyConcern: leftSafetyIssue,
-        },
-      ),
-      right: mkSide(
-        rightImageDetails,
-        rightViewerMeta,
-        rightNotes,
-        {
-          scheduleDelayed: rightDelayed,
-          qualityConcern: rightQualityIssue,
-          safetyConcern: rightSafetyIssue,
-        },
-      ),
-      annexLeft: leftAdditionalScreenshotNotes,
-      annexRight: rightAdditionalScreenshotNotes,
-    });
-
-    const pdfBlob = doc.output('blob');
-
     const primaryFileId = leftSelectedFileId || rightSelectedFileId;
     if (primaryFileId) {
       try {
@@ -933,11 +860,9 @@ const ComparePage: React.FC = () => {
         const state = buildCompareDraftState();
 
         if (editingDraftId) {
-          const updated = await updateComparisonDraftWithPdf({
+          const updated = await updateComparisonDraft({
             draftId: editingDraftId,
-            pdfBlob,
             fileId: primaryFileId,
-            filename: `FieldObservation_Compare_${ref}.pdf`,
             manualObservations: manualObservations || '',
             flags,
             state,
@@ -948,10 +873,8 @@ const ComparePage: React.FC = () => {
           setEditingDraftId(null);
           navigate('/Compare', { replace: true });
         } else {
-          const draft = await createComparisonDraftWithPdf({
-            pdfBlob,
+          const draft = await createComparisonDraft({
             fileId: primaryFileId,
-            filename: `FieldObservation_Compare_${ref}.pdf`,
             manualObservations: manualObservations || null,
             flags,
             state,
