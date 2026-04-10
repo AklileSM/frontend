@@ -3,15 +3,26 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls, Html  } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera,Raycaster, Vector2, Vector3 } from 'three';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
 import {
   buildFieldObservationPdf,
   fieldObservationReportReference,
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
-import { createReportWithPdf } from '../services/apiClient';
+import {
+  createReportWithPdf,
+  createViewerFieldDraft,
+  getViewerFieldDraft,
+  publishViewerFieldDraft,
+  updateViewerFieldDraft,
+} from '../services/apiClient';
 import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
+import {
+  isViewerFieldDraftStateV1,
+  mergeViewerFieldManualObservations,
+  type ViewerFieldDraftStateV1,
+} from '../utils/viewerFieldDraftState';
 
 type InteractiveViewerRoomState = {
   imageUrl?: string;
@@ -60,27 +71,33 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
 const InteractiveViewerRoom: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navState = (location.state || {}) as InteractiveViewerRoomState;
-  const imageUrl = navState.imageUrl || '/Images/panoramas/20241007/room02.jpg';
+  const [ctx, setCtx] = useState<InteractiveViewerRoomState>(() => ({ ...navState }));
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+
+  const imageUrl = ctx.imageUrl || '/Images/panoramas/20241007/room02.jpg';
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const room = navState.room || 'defaultRoom';
+  const room = ctx.room || 'defaultRoom';
 
   const [gl, setGl] = useState<WebGLRenderer | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
 
   const viewingFileName =
-    (navState.displayFileName && navState.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
+    (ctx.displayFileName && ctx.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
 
   const formattedDate =
-    (navState.captureDate && navState.captureDate.trim().slice(0, 10)) ||
+    (ctx.captureDate && ctx.captureDate.trim().slice(0, 10)) ||
     extractDateFromImageRef(imageUrl) ||
     'Unknown Date';
 
   let roomNumber: string;
-  if (navState.roomLabel && navState.roomLabel.trim()) {
-    roomNumber = navState.roomLabel.trim();
+  if (ctx.roomLabel && ctx.roomLabel.trim()) {
+    roomNumber = ctx.roomLabel.trim();
   } else {
     roomNumber = 'Unknown Room';
     const roomMatch = viewingFileName.match(/room(\d+)/i);
@@ -100,6 +117,104 @@ const InteractiveViewerRoom: React.FC = () => {
   const [safetyIssue, setSafetyIssue] = useState(false);
   const [qualityIssue, setQualityIssue] = useState(false);
   const [delayed, setDelayed] = useState(false);
+
+  const buildDraftState = (): ViewerFieldDraftStateV1 => ({
+    version: 1,
+    viewerKind: 'interactive_room',
+    imageUrl: ctx.imageUrl,
+    fileId: ctx.fileId,
+    room,
+    displayFileName: viewingFileName,
+    roomLabel: roomNumber,
+    captureDate: ctx.captureDate,
+    notes,
+    includeNotes,
+    includeScreenshot,
+    safetyIssue,
+    qualityIssue,
+    delayed,
+  });
+
+  useEffect(() => {
+    const id = searchParams.get('draft');
+    if (!id) return;
+    let cancelled = false;
+    setDraftLoadError(null);
+    void (async () => {
+      try {
+        const d = await getViewerFieldDraft(id);
+        if (cancelled) return;
+        if (d.viewer_kind !== 'interactive_room') {
+          setDraftLoadError('This draft was saved from a different viewer.');
+          return;
+        }
+        const raw = d.state_json;
+        if (!isViewerFieldDraftStateV1(raw) || raw.viewerKind !== 'interactive_room') {
+          setDraftLoadError('Could not read draft data.');
+          return;
+        }
+        const s = raw;
+        setCtx({
+          imageUrl: s.imageUrl,
+          fileId: s.fileId,
+          room: s.room ?? navState.room ?? 'defaultRoom',
+          displayFileName: s.displayFileName,
+          roomLabel: s.roomLabel,
+          captureDate: s.captureDate,
+        });
+        setNotes(s.notes ?? '');
+        setIncludeNotes(!!s.includeNotes);
+        setIncludeScreenshot(!!s.includeScreenshot);
+        setSafetyIssue(!!s.safetyIssue);
+        setQualityIssue(!!s.qualityIssue);
+        setDelayed(!!s.delayed);
+        setCapturedScreenshots([]);
+        setEditingDraftId(id);
+      } catch (e) {
+        if (!cancelled) {
+          setDraftLoadError(e instanceof Error ? e.message : 'Could not load draft.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, navState.room]);
+
+  const handleSaveDraft = async () => {
+    if (!ctx.fileId?.trim()) {
+      window.alert('Open a file from the room explorer so the report is linked to an asset, then save a draft.');
+      return;
+    }
+    setSaveDraftBusy(true);
+    try {
+      const st = buildDraftState();
+      const manual = mergeViewerFieldManualObservations(st);
+      const flags = flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed);
+      if (editingDraftId) {
+        await updateViewerFieldDraft({
+          draftId: editingDraftId,
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+      } else {
+        const created = await createViewerFieldDraft({
+          fileId: ctx.fileId.trim(),
+          viewerKind: 'interactive_room',
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+        setEditingDraftId(created.id);
+        setSearchParams({ draft: created.id }, { replace: true });
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Could not save draft.');
+    } finally {
+      setSaveDraftBusy(false);
+    }
+  };
 
   const [isLengthModalVisible, setIsLengthModalVisible] = useState(false);
   const [isLengthModalOpened, setIsLengthModalOpened] = useState(false);
@@ -314,16 +429,30 @@ const staticLineData = useMemo(() => {
       annexScreenshots: includeScreenshot && capturedScreenshots.length > 0 ? capturedScreenshots : undefined,
     });
     const pdfBlob = doc.output('blob');
-    if (navState.fileId?.trim()) {
+    if (ctx.fileId?.trim()) {
       try {
-        await createReportWithPdf({
-          pdfBlob,
-          fileId: navState.fileId.trim(),
-          filename: `FieldObservation_360_${ref}.pdf`,
-          aiDescription: null,
-          manualObservations: includeNotes ? (notes || null) : null,
-          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
-        });
+        if (editingDraftId) {
+          await publishViewerFieldDraft({
+            draftId: editingDraftId,
+            pdfBlob,
+            fileId: ctx.fileId.trim(),
+            filename: `FieldObservation_360_${ref}.pdf`,
+            aiDescription: null,
+            manualObservations: includeNotes ? (notes || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+          setEditingDraftId(null);
+          setSearchParams({}, { replace: true });
+        } else {
+          await createReportWithPdf({
+            pdfBlob,
+            fileId: ctx.fileId.trim(),
+            filename: `FieldObservation_360_${ref}.pdf`,
+            aiDescription: null,
+            manualObservations: includeNotes ? (notes || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+        }
       } catch (e) {
         alert(
           e instanceof Error
@@ -365,11 +494,11 @@ const staticLineData = useMemo(() => {
                 state: {
                   imageUrl,
                   room,
-                  fileId: navState.fileId,
-                  displayFileName: navState.displayFileName ?? viewingFileName,
-                  roomLabel: navState.roomLabel ?? roomNumber,
+                  fileId: ctx.fileId,
+                  displayFileName: ctx.displayFileName ?? viewingFileName,
+                  roomLabel: ctx.roomLabel ?? roomNumber,
                   captureDate:
-                    navState.captureDate ||
+                    ctx.captureDate ||
                     (formattedDate !== 'Unknown Date' ? formattedDate : undefined),
                 },
               })
@@ -897,16 +1026,21 @@ const staticLineData = useMemo(() => {
               </label>
             </div>
 
-            {/* Publish Button */}
-            <div className='flex gap-3'>
+            {draftLoadError ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300 mr-2 max-w-xs">{draftLoadError}</p>
+            ) : null}
+            <div className="flex flex-wrap gap-3">
               <button
-                // onClick={openPublishModal}
-                className="bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60 -mt-1.5"
+                type="button"
+                onClick={() => void handleSaveDraft()}
+                disabled={saveDraftBusy}
+                className="bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60 -mt-1.5 disabled:opacity-50"
               >
-                Save
+                {saveDraftBusy ? 'Saving…' : 'Save draft'}
               </button>
 
               <button
+                type="button"
                 onClick={openPublishModal}
                 className="bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60 mr-1.5 -mt-1.5"
               >

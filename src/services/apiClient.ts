@@ -502,6 +502,21 @@ export interface ApiComparisonDraftDetail extends ApiComparisonDraft {
   state_json: Record<string, unknown> | null;
 }
 
+/** Field-observation drafts from Static / Interactive / PCD viewers (separate from comparison drafts). */
+export interface ApiViewerFieldDraft {
+  id: string;
+  file_id: string;
+  viewer_kind: string;
+  label: string | null;
+  manual_observations: string | null;
+  flags: string[];
+  created_at: string;
+}
+
+export interface ApiViewerFieldDraftDetail extends ApiViewerFieldDraft {
+  state_json: Record<string, unknown> | null;
+}
+
 export function listReports(): Promise<ApiReport[]> {
   return getJson<ApiReport[]>('/reports/');
 }
@@ -681,6 +696,123 @@ export async function publishComparisonDrafts(params: {
     headers: { Authorization: `Bearer ${token}` },
     body: form,
   });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiReport>;
+}
+
+export function listViewerFieldDrafts(): Promise<ApiViewerFieldDraft[]> {
+  return getJson<ApiViewerFieldDraft[]>('/reports/viewer-drafts');
+}
+
+export function getViewerFieldDraft(draftId: string): Promise<ApiViewerFieldDraftDetail> {
+  return getJson<ApiViewerFieldDraftDetail>(`/reports/viewer-drafts/${encodeURIComponent(draftId)}`);
+}
+
+export async function deleteViewerFieldDraft(draftId: string): Promise<void> {
+  const response = await apiFetch(`/reports/viewer-drafts/${encodeURIComponent(draftId)}`, { method: 'DELETE' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+
+export async function createViewerFieldDraft(params: {
+  fileId: string;
+  viewerKind: string;
+  manualObservations?: string | null;
+  flags?: string[];
+  state: Record<string, unknown>;
+}): Promise<ApiViewerFieldDraftDetail> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Sign in to save report drafts.');
+  }
+  const response = await fetch(`${API_BASE}/reports/viewer-drafts`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      file_id: params.fileId,
+      viewer_kind: params.viewerKind,
+      manual_observations: params.manualObservations ?? null,
+      flags: params.flags ?? [],
+      state: params.state,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiViewerFieldDraftDetail>;
+}
+
+export async function updateViewerFieldDraft(params: {
+  draftId: string;
+  fileId?: string;
+  viewerKind?: string;
+  manualObservations?: string | null;
+  flags?: string[];
+  state: Record<string, unknown>;
+}): Promise<ApiViewerFieldDraftDetail> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Sign in to update report drafts.');
+  }
+  const response = await fetch(`${API_BASE}/reports/viewer-drafts/${encodeURIComponent(params.draftId)}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      file_id: params.fileId ?? null,
+      viewer_kind: params.viewerKind ?? null,
+      manual_observations: params.manualObservations ?? null,
+      flags: params.flags ?? [],
+      state: params.state,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+  return response.json() as Promise<ApiViewerFieldDraftDetail>;
+}
+
+/** Publish a single viewer draft: uploads PDF, creates report, removes draft. */
+export async function publishViewerFieldDraft(params: {
+  draftId: string;
+  pdfBlob: Blob;
+  fileId: string;
+  filename?: string;
+  aiDescription?: string | null;
+  manualObservations?: string | null;
+  flags?: string[];
+}): Promise<ApiReport> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('Sign in to publish reports.');
+  }
+  const form = new FormData();
+  form.append('file', params.pdfBlob, params.filename ?? 'report.pdf');
+  form.append('file_id', params.fileId);
+  if (params.aiDescription != null && params.aiDescription !== '') {
+    form.append('ai_description', params.aiDescription);
+  }
+  if (params.manualObservations != null && params.manualObservations !== '') {
+    form.append('manual_observations', params.manualObservations);
+  }
+  form.append('flags_json', JSON.stringify(params.flags ?? []));
+
+  const response = await fetch(
+    `${API_BASE}/reports/viewer-drafts/${encodeURIComponent(params.draftId)}/publish`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  );
   if (!response.ok) {
     throw new Error(await parseApiError(response));
   }

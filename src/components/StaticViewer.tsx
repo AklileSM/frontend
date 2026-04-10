@@ -1,6 +1,6 @@
 // StaticViewer.tsx
-import React, { useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import imageDescriptions from '../utils/imageDescriptions';
 import { fetchImageDescription } from '../services/imageDescriptionLogic';
 import {
@@ -9,8 +9,19 @@ import {
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
-import { createReportWithPdf } from '../services/apiClient';
+import {
+  createReportWithPdf,
+  createViewerFieldDraft,
+  getViewerFieldDraft,
+  publishViewerFieldDraft,
+  updateViewerFieldDraft,
+} from '../services/apiClient';
 import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
+import {
+  isViewerFieldDraftStateV1,
+  mergeViewerFieldManualObservations,
+  type ViewerFieldDraftStateV1,
+} from '../utils/viewerFieldDraftState';
 
 type StaticViewerState = {
   imageUrl?: string;
@@ -24,9 +35,15 @@ type StaticViewerState = {
 const StaticViewer: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = (location.state || {}) as StaticViewerState;
-  const imageUrl = state.imageUrl || '/Images/panoramas/20241007/room02.jpg';
-  const fileId = state.fileId;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navState = (location.state || {}) as StaticViewerState;
+  const [ctx, setCtx] = useState<StaticViewerState>(() => ({ ...navState }));
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+
+  const imageUrl = ctx.imageUrl || '/Images/panoramas/20241007/room02.jpg';
+  const fileId = ctx.fileId;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // State for modal, checkboxes, and text fields
@@ -127,16 +144,16 @@ const StaticViewer: React.FC = () => {
   // }, []);
 
   const viewingFileName =
-    (state.displayFileName && state.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
+    (ctx.displayFileName && ctx.displayFileName.trim()) || stripQueryLastPathSegment(imageUrl);
 
   const formattedDate =
-    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+    (ctx.captureDate && ctx.captureDate.trim().slice(0, 10)) ||
     extractDateFromImageRef(imageUrl) ||
     'Unknown Date';
 
   let roomNumber: string;
-  if (state.roomLabel && state.roomLabel.trim()) {
-    roomNumber = state.roomLabel.trim();
+  if (ctx.roomLabel && ctx.roomLabel.trim()) {
+    roomNumber = ctx.roomLabel.trim();
   } else {
     roomNumber = 'Unknown Room';
     const roomMatch = viewingFileName.match(/room(\d+)/i);
@@ -146,6 +163,105 @@ const StaticViewer: React.FC = () => {
   }
 
   const fileName = viewingFileName;
+
+  const buildDraftState = (): ViewerFieldDraftStateV1 => ({
+    version: 1,
+    viewerKind: 'static_360',
+    imageUrl: ctx.imageUrl,
+    fileId: ctx.fileId,
+    displayFileName: viewingFileName,
+    roomLabel: roomNumber,
+    captureDate: ctx.captureDate,
+    includeAutoLabeling,
+    includeAdditionalComments,
+    autoLabelingText,
+    additionalCommentsText,
+    displayedText,
+    safetyIssue,
+    qualityIssue,
+    delayed,
+  });
+
+  useEffect(() => {
+    const id = searchParams.get('draft');
+    if (!id) return;
+    let cancelled = false;
+    setDraftLoadError(null);
+    void (async () => {
+      try {
+        const d = await getViewerFieldDraft(id);
+        if (cancelled) return;
+        if (d.viewer_kind !== 'static_360') {
+          setDraftLoadError('This draft was saved from a different viewer.');
+          return;
+        }
+        const raw = d.state_json;
+        if (!isViewerFieldDraftStateV1(raw) || raw.viewerKind !== 'static_360') {
+          setDraftLoadError('Could not read draft data.');
+          return;
+        }
+        const s = raw;
+        setCtx({
+          imageUrl: s.imageUrl,
+          fileId: s.fileId,
+          displayFileName: s.displayFileName,
+          roomLabel: s.roomLabel,
+          captureDate: s.captureDate,
+        });
+        setIncludeAutoLabeling(!!s.includeAutoLabeling);
+        setIncludeAdditionalComments(!!s.includeAdditionalComments);
+        setAutoLabelingText(s.autoLabelingText ?? '');
+        setAdditionalCommentsText(s.additionalCommentsText ?? '');
+        setDisplayedText(s.displayedText ?? s.autoLabelingText ?? '');
+        setSafetyIssue(!!s.safetyIssue);
+        setQualityIssue(!!s.qualityIssue);
+        setDelayed(!!s.delayed);
+        setEditingDraftId(id);
+      } catch (e) {
+        if (!cancelled) {
+          setDraftLoadError(e instanceof Error ? e.message : 'Could not load draft.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
+
+  const handleSaveDraft = async () => {
+    if (!fileId?.trim()) {
+      window.alert('Open a file from the room explorer so the report is linked to an asset, then save a draft.');
+      return;
+    }
+    setSaveDraftBusy(true);
+    try {
+      const st = buildDraftState();
+      const manual = mergeViewerFieldManualObservations(st);
+      const flags = flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed);
+      if (editingDraftId) {
+        await updateViewerFieldDraft({
+          draftId: editingDraftId,
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+      } else {
+        const created = await createViewerFieldDraft({
+          fileId: fileId.trim(),
+          viewerKind: 'static_360',
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+        setEditingDraftId(created.id);
+        setSearchParams({ draft: created.id }, { replace: true });
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Could not save draft.');
+    } finally {
+      setSaveDraftBusy(false);
+    }
+  };
 
   const handleGenerateAutomaticLabeling = () => {
     const relativePath = imageUrl.split('Images/')[1];
@@ -235,14 +351,28 @@ const StaticViewer: React.FC = () => {
     const pdfBlob = doc.output('blob');
     if (fileId?.trim()) {
       try {
-        await createReportWithPdf({
-          pdfBlob,
-          fileId: fileId.trim(),
-          filename: `FieldObservation_${ref}.pdf`,
-          aiDescription: includeAutoLabeling ? (autoLabelingText || displayedText || null) : null,
-          manualObservations: includeAdditionalComments ? (additionalCommentsText || null) : null,
-          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
-        });
+        if (editingDraftId) {
+          await publishViewerFieldDraft({
+            draftId: editingDraftId,
+            pdfBlob,
+            fileId: fileId.trim(),
+            filename: `FieldObservation_${ref}.pdf`,
+            aiDescription: includeAutoLabeling ? (autoLabelingText || displayedText || null) : null,
+            manualObservations: includeAdditionalComments ? (additionalCommentsText || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+          setEditingDraftId(null);
+          setSearchParams({}, { replace: true });
+        } else {
+          await createReportWithPdf({
+            pdfBlob,
+            fileId: fileId.trim(),
+            filename: `FieldObservation_${ref}.pdf`,
+            aiDescription: includeAutoLabeling ? (autoLabelingText || displayedText || null) : null,
+            manualObservations: includeAdditionalComments ? (additionalCommentsText || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+        }
       } catch (e) {
         alert(
           e instanceof Error
@@ -282,11 +412,11 @@ const StaticViewer: React.FC = () => {
               navigate('/interactiveViewer', {
                 state: {
                   imageUrl,
-                  fileId: state.fileId,
+                  fileId: ctx.fileId,
                   displayFileName: viewingFileName,
                   roomLabel: roomNumber,
                   captureDate:
-                    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+                    (ctx.captureDate && ctx.captureDate.trim().slice(0, 10)) ||
                     (formattedDate !== 'Unknown Date' ? formattedDate : undefined),
                 },
               })
@@ -401,17 +531,28 @@ const StaticViewer: React.FC = () => {
 
       </div>
       {/* Publish Button for the Entire Form */}
+      {draftLoadError ? (
+        <p className="mb-2 text-sm text-amber-700 dark:text-amber-300" role="alert">
+          {draftLoadError}
+        </p>
+      ) : null}
+      {editingDraftId ? (
+        <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+          Editing draft — Save updates your draft; Generate report → Publish stores the PDF and removes this draft.
+        </p>
+      ) : null}
       <div className="flex justify-end mr-5 -mt-15 mb-3 gap-3">
         <button
-          // onClick={() => generatePDFReport('save')}
-          disabled={isGenerating} 
+          type="button"
+          onClick={() => void handleSaveDraft()}
+          disabled={isGenerating || saveDraftBusy}
           className={` font-semibold py-3 px-6 rounded-lg shadow-md transition-transform duration-300 ${
-            isGenerating
+            isGenerating || saveDraftBusy
               ? 'bg-gray-400 text-gray-600 cursor-not-allowed' // Disabled styles
               : 'bg-indigo-600 text-white hover:bg-indigo-700' // Active styles
           }`}
         >
-          Save
+          {saveDraftBusy ? 'Saving…' : 'Save draft'}
         </button>
         <button
           onClick={() => openPublishModal()}

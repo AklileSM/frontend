@@ -7,12 +7,15 @@ import {
   deleteComparisonDraft,
   deleteFileAsset,
   deleteReport,
+  deleteViewerFieldDraft,
   listComparisonDrafts,
   listMyUploads,
   listReports,
+  listViewerFieldDrafts,
   type ApiComparisonDraft,
   type ApiMyUpload,
   type ApiReport,
+  type ApiViewerFieldDraft,
 } from '../services/apiClient';
 
 /** Same navigation contract as FileExplorer → StaticViewer / staticPointCloudViewer. */
@@ -76,6 +79,32 @@ function comparisonDraftDisplayName(d: ApiComparisonDraft): string {
   const t = d.label?.trim();
   if (t) return t;
   return `${d.file_id.slice(0, 8)}…`;
+}
+
+const VIEWER_KIND_LABELS: Record<string, string> = {
+  static_360: 'Static',
+  static_room: 'Static (room)',
+  interactive_360: '360°',
+  interactive_room: '360° (room)',
+  static_pcd: 'Point cloud',
+};
+
+function viewerFieldDraftDisplayName(d: ApiViewerFieldDraft): string {
+  const t = d.label?.trim();
+  if (t) return t;
+  return `${d.file_id.slice(0, 8)}…`;
+}
+
+function openViewerFieldDraft(navigate: ReturnType<typeof useNavigate>, d: ApiViewerFieldDraft): void {
+  const paths: Record<string, string> = {
+    static_360: '/staticViewer',
+    static_room: '/staticViewerRoom',
+    interactive_360: '/interactiveViewer',
+    interactive_room: '/interactiveViewerRoom',
+    static_pcd: '/staticPointCloudViewer',
+  };
+  const path = paths[d.viewer_kind] ?? '/staticViewer';
+  navigate({ pathname: path, search: `?draft=${encodeURIComponent(d.id)}` });
 }
 
 function formatWhen(iso: string): string {
@@ -492,9 +521,11 @@ const ProfilePage: React.FC = () => {
   const [reports, setReports] = useState<ApiReport[] | null>(null);
   const [uploads, setUploads] = useState<ApiMyUpload[] | null>(null);
   const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[] | null>(null);
+  const [viewerFieldDrafts, setViewerFieldDrafts] = useState<ApiViewerFieldDraft[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draftsError, setDraftsError] = useState<string | null>(null);
+  const [viewerDraftsError, setViewerDraftsError] = useState<string | null>(null);
   const [uploadsError, setUploadsError] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const [reportPendingDelete, setReportPendingDelete] = useState<ApiReport | null>(null);
@@ -503,21 +534,20 @@ const ProfilePage: React.FC = () => {
   const [uploadDeleteModalError, setUploadDeleteModalError] = useState<string | null>(null);
   const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+  const [deletingViewerDraftId, setDeletingViewerDraftId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     setDraftsError(null);
+    setViewerDraftsError(null);
     setUploadsError(null);
     setLoading(true);
     try {
       const rep = await listReports();
       setReports(rep);
     } catch (e) {
-      setReports(null);
+      setReports([]);
       setError(e instanceof Error ? e.message : 'Could not load reports.');
-      setUploads(null);
-      setLoading(false);
-      return;
     }
 
     try {
@@ -526,6 +556,14 @@ const ProfilePage: React.FC = () => {
     } catch (e) {
       setComparisonDrafts([]);
       setDraftsError(e instanceof Error ? e.message : 'Could not load comparison drafts.');
+    }
+
+    try {
+      const vf = await listViewerFieldDrafts();
+      setViewerFieldDrafts(vf);
+    } catch (e) {
+      setViewerFieldDrafts([]);
+      setViewerDraftsError(e instanceof Error ? e.message : 'Could not load viewer report drafts.');
     }
 
     if (!showUploads) {
@@ -602,6 +640,18 @@ const ProfilePage: React.FC = () => {
       setDraftsError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
       setDeletingDraftId(null);
+    }
+  };
+
+  const confirmDeleteViewerFieldDraft = async (draftId: string) => {
+    setDeletingViewerDraftId(draftId);
+    try {
+      await deleteViewerFieldDraft(draftId);
+      setViewerFieldDrafts((prev) => (prev ? prev.filter((x) => x.id !== draftId) : null));
+    } catch (e) {
+      setViewerDraftsError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeletingViewerDraftId(null);
     }
   };
 
@@ -863,6 +913,119 @@ const ProfilePage: React.FC = () => {
                         }
                         onRequestDelete={() => void confirmDeleteDraft(d.id)}
                       />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="mb-10">
+        <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Field observation drafts</h3>
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          Drafts saved from Static, 360°, and point cloud viewers. Open one to continue editing; publish from the
+          viewer when you are ready. Each draft is published on its own (no merged publish).
+        </p>
+
+        {viewerDraftsError ? (
+          <div
+            className="mb-4 rounded-lg border border-danger bg-danger bg-opacity-10 px-4 py-3 text-sm text-danger"
+            role="alert"
+          >
+            {viewerDraftsError}
+          </div>
+        ) : null}
+
+        {loading && viewerFieldDrafts === null ? (
+          <p className="text-gray-600 dark:text-gray-300">Loading field observation drafts…</p>
+        ) : null}
+
+        {!loading && viewerFieldDrafts && viewerFieldDrafts.length === 0 ? (
+          <div className="rounded-lg border border-stroke bg-gray-50 p-8 text-center dark:border-strokedark dark:bg-gray-800">
+            <p className="text-gray-700 dark:text-gray-200">No field observation drafts saved.</p>
+          </div>
+        ) : null}
+
+        {viewerFieldDrafts && viewerFieldDrafts.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border border-stroke dark:border-strokedark">
+            <table className="min-w-full divide-y divide-stroke dark:divide-strokedark">
+              <thead className="bg-gray-50 dark:bg-meta-4">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Saved
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Viewer
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Label
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Notes
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Flags
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stroke bg-white dark:divide-strokedark dark:bg-boxdark">
+                {viewerFieldDrafts.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-meta-4">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+                      {formatWhen(d.created_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      {VIEWER_KIND_LABELS[d.viewer_kind] ?? d.viewer_kind}
+                    </td>
+                    <td className="max-w-xs px-4 py-3">
+                      <span
+                        className="text-sm text-gray-800 dark:text-gray-200"
+                        title={d.label?.trim() ? `${d.label} (${d.file_id})` : d.file_id}
+                      >
+                        {viewerFieldDraftDisplayName(d)}
+                      </span>
+                    </td>
+                    <td className="max-w-md px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      {truncate(d.manual_observations, 120)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(d.flags ?? []).length === 0 ? (
+                          <span className="text-xs text-gray-400">—</span>
+                        ) : (
+                          d.flags.map((f) => (
+                            <span
+                              key={f}
+                              className="rounded bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/25"
+                            >
+                              {f}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                      <button
+                        type="button"
+                        disabled={deletingViewerDraftId === d.id}
+                        onClick={() => openViewerFieldDraft(navigate, d)}
+                        className="mr-3 font-medium text-primary hover:underline disabled:opacity-50"
+                      >
+                        Open in viewer
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingViewerDraftId === d.id}
+                        onClick={() => void confirmDeleteViewerFieldDraft(d.id)}
+                        className="font-medium text-danger hover:underline disabled:opacity-50"
+                      >
+                        {deletingViewerDraftId === d.id ? 'Deleting…' : 'Delete'}
+                      </button>
                     </td>
                   </tr>
                 ))}

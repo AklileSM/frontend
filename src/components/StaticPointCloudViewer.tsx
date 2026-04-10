@@ -1,13 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
 import {
   buildFieldObservationPdf,
   fieldObservationReportReference,
 } from '../utils/engineeringReportPdf';
 import { readSession } from '../auth/authSession';
-import { createReportWithPdf } from '../services/apiClient';
+import {
+  createReportWithPdf,
+  createViewerFieldDraft,
+  getViewerFieldDraft,
+  publishViewerFieldDraft,
+  updateViewerFieldDraft,
+} from '../services/apiClient';
 import { flagsFromObservationBooleans } from '../utils/observationReportFlags';
+import {
+  isViewerFieldDraftStateV1,
+  mergeViewerFieldManualObservations,
+  type ViewerFieldDraftStateV1,
+} from '../utils/viewerFieldDraftState';
 
 export type StaticPointCloudViewerState = {
   modelUrl: string;
@@ -22,8 +33,14 @@ export type StaticPointCloudViewerState = {
 const StaticPointCloudViewer: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = (location.state || {}) as StaticPointCloudViewerState;
-  const modelUrl = state.modelUrl || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navState = (location.state || {}) as StaticPointCloudViewerState;
+  const [ctx, setCtx] = useState<StaticPointCloudViewerState>(() => ({ ...navState }));
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+
+  const modelUrl = ctx.modelUrl || '';
   const viewerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -36,15 +53,15 @@ const StaticPointCloudViewer: React.FC = () => {
   const [delayed, setDelayed] = useState(false);
 
   const viewingFileName =
-    (state.displayFileName && state.displayFileName.trim()) || stripQueryLastPathSegment(modelUrl);
+    (ctx.displayFileName && ctx.displayFileName.trim()) || stripQueryLastPathSegment(modelUrl);
   const formattedDate =
-    (state.captureDate && state.captureDate.trim().slice(0, 10)) ||
+    (ctx.captureDate && ctx.captureDate.trim().slice(0, 10)) ||
     extractDateFromImageRef(modelUrl) ||
     'Unknown Date';
 
   let roomNumber = 'Unknown Room';
-  if (state.roomLabel && state.roomLabel.trim()) {
-    roomNumber = state.roomLabel.trim();
+  if (ctx.roomLabel && ctx.roomLabel.trim()) {
+    roomNumber = ctx.roomLabel.trim();
   } else {
     const roomMatch = viewingFileName.match(/room(\d+)/i);
     if (roomMatch) {
@@ -52,14 +69,109 @@ const StaticPointCloudViewer: React.FC = () => {
     }
   }
 
+  const buildDraftState = (): ViewerFieldDraftStateV1 => ({
+    version: 1,
+    viewerKind: 'static_pcd',
+    modelUrl: ctx.modelUrl,
+    fileId: ctx.fileId,
+    room: ctx.room,
+    displayFileName: viewingFileName,
+    roomLabel: roomNumber,
+    captureDate: ctx.captureDate,
+    notes,
+    includeNotes,
+    safetyIssue,
+    qualityIssue,
+    delayed,
+  });
+
+  useEffect(() => {
+    const id = searchParams.get('draft');
+    if (!id) return;
+    let cancelled = false;
+    setDraftLoadError(null);
+    void (async () => {
+      try {
+        const d = await getViewerFieldDraft(id);
+        if (cancelled) return;
+        if (d.viewer_kind !== 'static_pcd') {
+          setDraftLoadError('This draft was saved from a different viewer.');
+          return;
+        }
+        const raw = d.state_json;
+        if (!isViewerFieldDraftStateV1(raw) || raw.viewerKind !== 'static_pcd') {
+          setDraftLoadError('Could not read draft data.');
+          return;
+        }
+        const s = raw;
+        setCtx({
+          modelUrl: s.modelUrl,
+          fileId: s.fileId,
+          room: s.room,
+          displayFileName: s.displayFileName,
+          roomLabel: s.roomLabel,
+          captureDate: s.captureDate,
+        });
+        setNotes(s.notes ?? '');
+        setIncludeNotes(!!s.includeNotes);
+        setSafetyIssue(!!s.safetyIssue);
+        setQualityIssue(!!s.qualityIssue);
+        setDelayed(!!s.delayed);
+        setEditingDraftId(id);
+      } catch (e) {
+        if (!cancelled) {
+          setDraftLoadError(e instanceof Error ? e.message : 'Could not load draft.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
+
+  const handleSaveDraft = async () => {
+    if (!ctx.fileId?.trim()) {
+      window.alert('Open a point cloud from the explorer so the report is linked to an asset, then save a draft.');
+      return;
+    }
+    setSaveDraftBusy(true);
+    try {
+      const st = buildDraftState();
+      const manual = mergeViewerFieldManualObservations(st);
+      const flags = flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed);
+      if (editingDraftId) {
+        await updateViewerFieldDraft({
+          draftId: editingDraftId,
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+      } else {
+        const created = await createViewerFieldDraft({
+          fileId: ctx.fileId.trim(),
+          viewerKind: 'static_pcd',
+          state: { ...st } as Record<string, unknown>,
+          manualObservations: manual,
+          flags,
+        });
+        setEditingDraftId(created.id);
+        setSearchParams({ draft: created.id }, { replace: true });
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Could not save draft.');
+    } finally {
+      setSaveDraftBusy(false);
+    }
+  };
+
   const iframeSrc =
     modelUrl.length > 0
       ? `/potree/examples/viewer.html?url=${encodeURIComponent(modelUrl)}`
       : '';
 
   const goBack = () => {
-    if (state.room) {
-      navigate('/RoomExplorer', { state: { room: state.room } });
+    if (ctx.room) {
+      navigate('/RoomExplorer', { state: { room: ctx.room } });
     } else {
       navigate(-1);
     }
@@ -114,16 +226,30 @@ const StaticPointCloudViewer: React.FC = () => {
       },
     });
     const pdfBlob = doc.output('blob');
-    if (state.fileId?.trim()) {
+    if (ctx.fileId?.trim()) {
       try {
-        await createReportWithPdf({
-          pdfBlob,
-          fileId: state.fileId.trim(),
-          filename: `FieldObservation_PCD_${ref}.pdf`,
-          aiDescription: null,
-          manualObservations: includeNotes ? (notes || null) : null,
-          flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
-        });
+        if (editingDraftId) {
+          await publishViewerFieldDraft({
+            draftId: editingDraftId,
+            pdfBlob,
+            fileId: ctx.fileId.trim(),
+            filename: `FieldObservation_PCD_${ref}.pdf`,
+            aiDescription: null,
+            manualObservations: includeNotes ? (notes || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+          setEditingDraftId(null);
+          setSearchParams({}, { replace: true });
+        } else {
+          await createReportWithPdf({
+            pdfBlob,
+            fileId: ctx.fileId.trim(),
+            filename: `FieldObservation_PCD_${ref}.pdf`,
+            aiDescription: null,
+            manualObservations: includeNotes ? (notes || null) : null,
+            flags: flagsFromObservationBooleans(safetyIssue, qualityIssue, delayed),
+          });
+        }
       } catch (e) {
         alert(
           e instanceof Error
@@ -268,12 +394,17 @@ const StaticPointCloudViewer: React.FC = () => {
               </label>
             </div>
 
-            <div className="flex gap-3">
+            {draftLoadError ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300 mr-2 max-w-xs">{draftLoadError}</p>
+            ) : null}
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                className="bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60 -mt-1.5"
+                onClick={() => void handleSaveDraft()}
+                disabled={saveDraftBusy}
+                className="bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-transform duration-300 hover:bg-opacity-60 -mt-1.5 disabled:opacity-50"
               >
-                Save
+                {saveDraftBusy ? 'Saving…' : 'Save draft'}
               </button>
               <button
                 type="button"
