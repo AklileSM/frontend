@@ -32,6 +32,23 @@ function normalizeCompareDate(raw: string): string {
   return raw.length >= 10 ? raw.slice(0, 10) : raw;
 }
 
+/** Calendar day (YYYY-MM-DD) in local time for when the draft row was created — not capture date. */
+function draftSavedDayKeyLocal(iso: string): string {
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return '';
+  const y = t.getFullYear();
+  const m = String(t.getMonth() + 1).padStart(2, '0');
+  const d = String(t.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatLocalDayMedium(dateKey: string): string {
+  const parts = dateKey.split('-').map((p) => Number(p));
+  const [y, mo, day] = parts;
+  if (!y || !mo || !day) return dateKey;
+  return new Date(y, mo - 1, day).toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
 type CameraSyncState = {
   position: [number, number, number];
   target: [number, number, number];
@@ -171,6 +188,8 @@ const ComparePage: React.FC = () => {
   const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[]>([]);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [publishSelectedIds, setPublishSelectedIds] = useState<string[]>([]);
+  /** Local calendar days (YYYY-MM-DD) for draft `created_at`; drafts on any checked day are listed. */
+  const [publishFilterDateKeys, setPublishFilterDateKeys] = useState<string[]>([]);
   const [publishModalLoading, setPublishModalLoading] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [saveDraftBusy, setSaveDraftBusy] = useState(false);
@@ -191,12 +210,38 @@ const ComparePage: React.FC = () => {
 
   const closeCompareNotice = useCallback(() => setCompareNotice(null), []);
 
+  const publishAvailableDateKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of comparisonDrafts) {
+      const k = draftSavedDayKeyLocal(d.created_at);
+      if (k) set.add(k);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [comparisonDrafts]);
+
+  const publishVisibleDrafts = useMemo(() => {
+    if (publishFilterDateKeys.length === 0) return [];
+    const allow = new Set(publishFilterDateKeys);
+    return comparisonDrafts.filter((d) => allow.has(draftSavedDayKeyLocal(d.created_at)));
+  }, [comparisonDrafts, publishFilterDateKeys]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    setPublishSelectedIds((prev) =>
+      prev.filter((id) => publishVisibleDrafts.some((d) => d.id === id)),
+    );
+  }, [isModalOpen, publishVisibleDrafts]);
+
   const openPublishModal = async () => {
     setValidationMessage(null);
     setPublishModalLoading(true);
     try {
       const drafts = await listComparisonDrafts();
       setComparisonDrafts(drafts);
+      const dayKeys = Array.from(
+        new Set(drafts.map((d) => draftSavedDayKeyLocal(d.created_at)).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b));
+      setPublishFilterDateKeys(dayKeys);
       setPublishSelectedIds(drafts.map((d) => d.id));
       setIsModalOpen(true);
     } catch (e) {
@@ -541,6 +586,7 @@ const ComparePage: React.FC = () => {
     setIsModalOpen(false);
     setValidationMessage(null);
     setPublishSelectedIds([]);
+    setPublishFilterDateKeys([]);
   };
 
   const togglePublishDraft = (id: string) => {
@@ -550,7 +596,7 @@ const ComparePage: React.FC = () => {
   };
 
   const selectAllPublishDrafts = () => {
-    setPublishSelectedIds(comparisonDrafts.map((d) => d.id));
+    setPublishSelectedIds(publishVisibleDrafts.map((d) => d.id));
   };
 
   const clearPublishDraftSelection = () => {
@@ -1326,7 +1372,7 @@ const ComparePage: React.FC = () => {
                   </h2>
                   {comparisonDrafts.length > 0 ? (
                     <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-200">
-                      {publishSelectedIds.length} of {comparisonDrafts.length} selected
+                      {publishSelectedIds.length} of {publishVisibleDrafts.length} selected
                     </span>
                   ) : null}
                 </div>
@@ -1371,10 +1417,66 @@ const ComparePage: React.FC = () => {
                 </div>
               ) : (
                 <>
+                  <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-3 dark:border-gray-700 dark:bg-gray-900/50">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Draft saved on (local date)
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          disabled={publishBusy || publishAvailableDateKeys.length === 0}
+                          onClick={() => setPublishFilterDateKeys([...publishAvailableDateKeys])}
+                          className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700"
+                        >
+                          All dates
+                        </button>
+                        <button
+                          type="button"
+                          disabled={publishBusy}
+                          onClick={() => setPublishFilterDateKeys([])}
+                          className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700"
+                        >
+                          Clear dates
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {publishAvailableDateKeys.map((key) => {
+                        const checked = publishFilterDateKeys.includes(key);
+                        return (
+                          <label
+                            key={key}
+                            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                              checked
+                                ? 'border-indigo-300 bg-indigo-50 text-indigo-900 dark:border-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-100'
+                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-200 dark:hover:border-gray-500'
+                            } ${publishBusy ? 'pointer-events-none opacity-60' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="form-checkbox h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900"
+                              checked={checked}
+                              disabled={publishBusy}
+                              onChange={() => {
+                                setPublishFilterDateKeys((prev) =>
+                                  prev.includes(key)
+                                    ? prev.filter((k) => k !== key)
+                                    : [...prev, key].sort((a, b) => a.localeCompare(b)),
+                                );
+                              }}
+                            />
+                            {formatLocalDayMedium(key)}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      disabled={publishBusy}
+                      disabled={publishBusy || publishVisibleDrafts.length === 0}
                       onClick={selectAllPublishDrafts}
                       className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                     >
@@ -1389,43 +1491,54 @@ const ComparePage: React.FC = () => {
                       Clear
                     </button>
                   </div>
-                  <ul className="space-y-2">
-                    {comparisonDrafts.map((d) => {
-                      const selected = publishSelectedIds.includes(d.id);
-                      return (
-                        <li key={d.id}>
-                          <label
-                            htmlFor={`publish-draft-${d.id}`}
-                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
-                              selected
-                                ? 'border-indigo-300 bg-indigo-50/90 ring-1 ring-indigo-200 dark:border-indigo-700 dark:bg-indigo-950/40 dark:ring-indigo-900'
-                                : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50/80 dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 dark:hover:bg-gray-900/60'
-                            } ${publishBusy ? 'pointer-events-none opacity-60' : ''}`}
-                          >
-                            <input
-                              id={`publish-draft-${d.id}`}
-                              type="checkbox"
-                              disabled={publishBusy}
-                              className="form-checkbox mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed dark:border-gray-600 dark:bg-gray-900"
-                              checked={selected}
-                              onChange={() => togglePublishDraft(d.id)}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {d.label?.trim() || `${d.file_id.slice(0, 8)}…`}
+                  {publishVisibleDrafts.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-amber-200/80 bg-amber-50/50 py-8 text-center dark:border-amber-900/50 dark:bg-amber-950/20">
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        No drafts match the selected saved dates
+                      </p>
+                      <p className="mt-1 px-4 text-xs text-amber-800/90 dark:text-amber-200/80">
+                        Choose one or more &quot;Draft saved on&quot; dates above to include those drafts.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {publishVisibleDrafts.map((d) => {
+                        const selected = publishSelectedIds.includes(d.id);
+                        return (
+                          <li key={d.id}>
+                            <label
+                              htmlFor={`publish-draft-${d.id}`}
+                              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                                selected
+                                  ? 'border-indigo-300 bg-indigo-50/90 ring-1 ring-indigo-200 dark:border-indigo-700 dark:bg-indigo-950/40 dark:ring-indigo-900'
+                                  : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50/80 dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 dark:hover:bg-gray-900/60'
+                              } ${publishBusy ? 'pointer-events-none opacity-60' : ''}`}
+                            >
+                              <input
+                                id={`publish-draft-${d.id}`}
+                                type="checkbox"
+                                disabled={publishBusy}
+                                className="form-checkbox mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed dark:border-gray-600 dark:bg-gray-900"
+                                checked={selected}
+                                onChange={() => togglePublishDraft(d.id)}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                  {d.label?.trim() || `${d.file_id.slice(0, 8)}…`}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(d.created_at).toLocaleString(undefined, {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                  })}
+                                </span>
                               </span>
-                              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(d.created_at).toLocaleString(undefined, {
-                                  dateStyle: 'medium',
-                                  timeStyle: 'short',
-                                })}
-                              </span>
-                            </span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </>
               )}
 
@@ -1447,7 +1560,7 @@ const ComparePage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={publishBusy || comparisonDrafts.length === 0}
+                disabled={publishBusy || publishVisibleDrafts.length === 0}
                 onClick={() => void handlePublishConfirm()}
                 className="order-1 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:from-indigo-500 hover:to-violet-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-950 sm:order-2 sm:w-auto"
               >
