@@ -1507,103 +1507,146 @@ const ComparePage: React.FC = () => {
       ) : null}
 
       {isScreenshotModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-999">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-[65rem] max-w-full p-4 relative">
-            <button
-              onClick={() => setIsScreenshotModalOpen(false)}
-              className="absolute top-3 right-3 bg-gray-300 dark:bg-gray-700 p-2 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
-                className="w-6 h-6 text-gray-800 dark:text-white"
+        <div
+          className="fixed inset-0 z-999 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="compare-screenshots-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+              <h2
+                id="compare-screenshots-title"
+                className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+                Comparison screenshots
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsScreenshotModalOpen(false)}
+                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white mb-3">Comparison Screenshots</h2>
-            
-            <div className="flex justify-between items-center space-x-6">
-              <div className='flex flex-col space-y-2'>
-                <div className="flex flex-col items-center space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Left View</h3>
-                  {leftScreenshot ? (
-                    <img
-                      src={leftScreenshot}
-                      alt="Left View Screenshot"
-                      className="rounded-lg shadow-md max-w-full max-h-full border border-gray-300 dark:border-gray-700"
-                    />
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No Screenshot Available</p>
-                  )}
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div className="flex min-h-0 flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Left view
+                  </span>
+                  <div className="relative overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-gray-950 dark:ring-gray-800">
+                    {leftScreenshot ? (
+                      <>
+                        <img
+                          src={leftScreenshot}
+                          alt="Left view screenshot"
+                          className="mx-auto max-h-[min(52vh,480px)] w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!leftScreenshot) return;
+                            const link = document.createElement('a');
+                            link.href = leftScreenshot;
+                            link.download = 'Left_View_Screenshot.png';
+                            link.click();
+                          }}
+                          className="absolute right-2 top-2 rounded-full bg-black/55 p-2.5 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white/80"
+                          aria-label="Download left screenshot"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                            />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex aspect-[4/3] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                        No screenshot
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (leftScreenshot) {
-                      const link = document.createElement("a");
-                      link.href = leftScreenshot;
-                      link.download = "Left_View_Screenshot.png";
-                      link.click();
-                    }
-                  }}
-                  className="bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-80  transition"
-                >
-                  Download Left Screenshot
-                </button>
-              </div>
-              
-              <div className='flex flex-col space-y-2'>
-                <div className="flex flex-col items-center space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Right View</h3>
-                  {rightScreenshot ? (
-                    <img
-                      src={rightScreenshot}
-                      alt="Right View Screenshot"
-                      className="rounded-lg shadow-md max-w-full h-auto border border-gray-300 dark:border-gray-700"
-                    />
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No Screenshot Available</p>
-                  )}
+
+                <div className="flex min-h-0 flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Right view
+                  </span>
+                  <div className="relative overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-gray-950 dark:ring-gray-800">
+                    {rightScreenshot ? (
+                      <>
+                        <img
+                          src={rightScreenshot}
+                          alt="Right view screenshot"
+                          className="mx-auto max-h-[min(52vh,480px)] w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!rightScreenshot) return;
+                            const link = document.createElement('a');
+                            link.href = rightScreenshot;
+                            link.download = 'Right_View_Screenshot.png';
+                            link.click();
+                          }}
+                          className="absolute right-2 top-2 rounded-full bg-black/55 p-2.5 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white/80"
+                          aria-label="Download right screenshot"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                            />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex aspect-[4/3] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                        No screenshot
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (rightScreenshot) {
-                      const link = document.createElement("a");
-                      link.href = rightScreenshot;
-                      link.download = "Right_View_Screenshot.png";
-                      link.click();
-                    }
-                  }}
-                  className="bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:opacity-80 transition"
-                >
-                  Download Right Screenshot
-                </button>
               </div>
             </div>
 
-            <div className="flex justify-center mt-3">
+            <div className="flex justify-center border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <button
+                type="button"
                 onClick={() => {
                   if (leftScreenshot) {
-                    const leftLink = document.createElement("a");
+                    const leftLink = document.createElement('a');
                     leftLink.href = leftScreenshot;
-                    leftLink.download = "Left_View_Screenshot.png";
+                    leftLink.download = 'Left_View_Screenshot.png';
                     leftLink.click();
                   }
                   if (rightScreenshot) {
-                    const rightLink = document.createElement("a");
+                    const rightLink = document.createElement('a');
                     rightLink.href = rightScreenshot;
-                    rightLink.download = "Right_View_Screenshot.png";
+                    rightLink.download = 'Right_View_Screenshot.png';
                     rightLink.click();
                   }
                 }}
-                className="bg-green-500 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:opacity-80 transition"
+                disabled={!leftScreenshot && !rightScreenshot}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-md transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
               >
-                Download Both Screenshots
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                  />
+                </svg>
+                Download both
               </button>
             </div>
           </div>
