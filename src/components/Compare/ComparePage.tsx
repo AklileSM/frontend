@@ -114,8 +114,6 @@ const ComparePage: React.FC = () => {
 
   // State for modal and checkboxes
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [includeImages, setIncludeImages] = useState(false);
-  const [includeNotes, setIncludeNotes] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>(''); // Store the user's notes
 
@@ -198,8 +196,24 @@ const ComparePage: React.FC = () => {
 
   const [comparisonDrafts, setComparisonDrafts] = useState<ApiComparisonDraft[]>([]);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [publishSelectedIds, setPublishSelectedIds] = useState<string[]>([]);
+  const [publishModalLoading, setPublishModalLoading] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
 
-  const openPublishModal = () => setIsModalOpen(true);
+  const openPublishModal = async () => {
+    setValidationMessage(null);
+    setPublishModalLoading(true);
+    try {
+      const drafts = await listComparisonDrafts();
+      setComparisonDrafts(drafts);
+      setPublishSelectedIds(drafts.map((d) => d.id));
+      setIsModalOpen(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not load comparison drafts.');
+    } finally {
+      setPublishModalLoading(false);
+    }
+  };
 
   const buildCompareDraftState = useCallback((): CompareDraftStateV1 => {
     const sideSnapshot = (
@@ -531,9 +545,22 @@ const ComparePage: React.FC = () => {
 
   const closePublishModal = () => {
     setIsModalOpen(false);
-    setIncludeImages(false);
-    setIncludeNotes(false);
     setValidationMessage(null);
+    setPublishSelectedIds([]);
+  };
+
+  const togglePublishDraft = (id: string) => {
+    setPublishSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const selectAllPublishDrafts = () => {
+    setPublishSelectedIds(comparisonDrafts.map((d) => d.id));
+  };
+
+  const clearPublishDraftSelection = () => {
+    setPublishSelectedIds([]);
   };
 
   const generatePDFWithNotes = () => {
@@ -702,15 +729,28 @@ const ComparePage: React.FC = () => {
     };
   }, [draftQueryId]);
 
-  const publishReports = async () => {
-    if (comparisonDrafts.length === 0) {
-      alert('No saved comparison drafts to publish.');
+  const publishReportsWithIds = async (draftIds: string[]) => {
+    if (draftIds.length === 0) {
+      alert('Select at least one draft to publish.');
+      return;
+    }
+
+    const idSet = new Set(draftIds);
+    const orderedDrafts = comparisonDrafts.filter((d) => idSet.has(d.id));
+    if (orderedDrafts.length === 0) {
+      alert('No matching drafts to publish. Refresh and try again.');
+      return;
+    }
+
+    const missingPdf = orderedDrafts.filter((d) => !d.pdf_url);
+    if (missingPdf.length > 0) {
+      alert('One or more selected drafts have no PDF. Save each draft first.');
       return;
     }
 
     const consolidatedPdf = await PDFDocument.create();
 
-    for (const draft of comparisonDrafts) {
+    for (const draft of orderedDrafts) {
       if (!draft.pdf_url) continue;
       const existingPdfBytes = await fetch(draft.pdf_url, {
         headers: {
@@ -730,7 +770,8 @@ const ComparePage: React.FC = () => {
     new Uint8Array(pdfArrayBuffer).set(consolidatedPdfBytes);
     const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
 
-    const primaryFileId = leftSelectedFileId || rightSelectedFileId || comparisonDrafts[0]?.file_id;
+    const primaryFileId =
+      orderedDrafts[0]?.file_id || leftSelectedFileId || rightSelectedFileId || comparisonDrafts[0]?.file_id;
     if (!primaryFileId) {
       alert('Cannot publish without a file reference.');
       return;
@@ -739,20 +780,37 @@ const ComparePage: React.FC = () => {
     await publishComparisonDrafts({
       pdfBlob: blob,
       fileId: primaryFileId,
-      draftIds: comparisonDrafts.map((d) => d.id),
+      draftIds: orderedDrafts.map((d) => d.id),
       filename: 'Consolidated_Comparison_Report.pdf',
       manualObservations: null,
       flags: [],
     });
 
-    setComparisonDrafts([]);
+    setComparisonDrafts((prev) => prev.filter((d) => !draftIds.includes(d.id)));
+    setPublishSelectedIds([]);
     setIsModalOpen(false);
-    setEditingDraftId(null);
+    setEditingDraftId((cur) => (cur && draftIds.includes(cur) ? null : cur));
     navigate('/Compare', { replace: true });
     alert('Published consolidated comparison report.');
   };
-  
-  const handleModalPublish = async (action: 'save' | 'publish') => {
+
+  const handlePublishConfirm = async () => {
+    setValidationMessage(null);
+    if (publishSelectedIds.length === 0) {
+      setValidationMessage('Select at least one draft to include in the consolidated report.');
+      return;
+    }
+    setPublishBusy(true);
+    try {
+      await publishReportsWithIds(publishSelectedIds);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Publish failed.');
+    } finally {
+      setPublishBusy(false);
+    }
+  };
+
+  const saveComparisonDraft = async () => {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -870,13 +928,9 @@ const ComparePage: React.FC = () => {
       }
     }
 
-    if (action === 'save') {
-      alert(editingDraftId ? 'Comparison draft updated.' : 'Comparison draft saved.');
-      if (!editingDraftId) {
-        resetBottomSectionInputs();
-      }
-    } else if (action === 'publish') {
-      await publishReports();
+    alert(editingDraftId ? 'Comparison draft updated.' : 'Comparison draft saved.');
+    if (!editingDraftId) {
+      resetBottomSectionInputs();
     }
   };
 
@@ -909,8 +963,12 @@ const ComparePage: React.FC = () => {
           <h1 className="text-xl font-bold text-black dark:text-white">Compare View</h1>
           {editingDraftId ? (
             <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              Editing comparison draft{' '}
-              <span className="font-mono">{editingDraftId.slice(0, 8)}…</span> — Save updates this draft.
+              Editing comparison draft:{' '}
+              <span className="font-medium">
+                {comparisonDrafts.find((d) => d.id === editingDraftId)?.label?.trim() ||
+                  `${editingDraftId.slice(0, 8)}…`}
+              </span>{' '}
+              — Save updates this draft.
             </p>
           ) : null}
         </div>
@@ -1243,16 +1301,19 @@ const ComparePage: React.FC = () => {
           {/* Buttons Section */}
           <div className="flex justify-end mt-6 gap-3">
             <button
-              onClick={() => handleModalPublish('save')}
+              type="button"
+              onClick={() => void saveComparisonDraft()}
               className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Save
             </button>
             <button
-              onClick={openPublishModal}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              type="button"
+              disabled={publishModalLoading}
+              onClick={() => void openPublishModal()}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
             >
-              Generate Report
+              {publishModalLoading ? 'Loading…' : 'Generate Report'}
             </button>
           </div>
         </div>
@@ -1260,52 +1321,90 @@ const ComparePage: React.FC = () => {
   
       {/* Publish Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-999">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full">
-            {/* <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-200">Publish Report</h2> */}
-            
-            <div className="mb-4">
-              {/* <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={includeImages}
-                  onChange={() => setIncludeImages(!includeImages)}
-                  className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                />
-                <span className="text-gray-700 dark:text-gray-300">Include Screenshots</span>
-              </label>
-              <label className="flex items-center space-x-2 mt-2">
-                <input
-                  type="checkbox"
-                  checked={includeNotes}
-                  onChange={() => setIncludeNotes(!includeNotes)}
-                  className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                />
-                <span className="text-gray-700 dark:text-gray-300">Include Notes</span>
-              </label> */}
-              <p className='text-lg mb-5'>Publishing will clear all saved comparison drafts.</p>
-            </div>
-  
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-999 p-4">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-xl w-full max-h-[90vh] flex flex-col">
+            <h2 className="text-xl font-semibold mb-1 text-gray-900 dark:text-gray-200">
+              Publish consolidated report
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Choose which comparison drafts to merge into one PDF. Only the drafts you select are removed from
+              your drafts list after publishing; the rest stay available.
+            </p>
+
+            {comparisonDrafts.length === 0 ? (
+              <p className="text-gray-700 dark:text-gray-300 mb-4">No comparison drafts found.</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-3 mb-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={selectAllPublishDrafts}
+                    className="text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    Select all
+                  </button>
+                  <span className="text-gray-400">·</span>
+                  <button
+                    type="button"
+                    onClick={clearPublishDraftSelection}
+                    className="text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <ul className="mb-4 max-h-64 overflow-y-auto rounded border border-stroke dark:border-strokedark divide-y divide-stroke dark:divide-strokedark">
+                  {comparisonDrafts.map((d) => (
+                    <li key={d.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-meta-4">
+                      <input
+                        id={`publish-draft-${d.id}`}
+                        type="checkbox"
+                        className="form-checkbox mt-1 h-4 w-4 shrink-0 text-indigo-600"
+                        checked={publishSelectedIds.includes(d.id)}
+                        onChange={() => togglePublishDraft(d.id)}
+                      />
+                      <label
+                        htmlFor={`publish-draft-${d.id}`}
+                        className="flex-1 cursor-pointer text-sm text-gray-800 dark:text-gray-200"
+                      >
+                        <span className="font-medium block">
+                          {d.label?.trim() || `${d.file_id.slice(0, 8)}…`}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(d.created_at).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
             {validationMessage && (
               <p className="text-red-600 text-sm mb-4">{validationMessage}</p>
             )}
-  
-            <div className="flex flex-col space-y-3">
-              <div className='flex justify-end space-x-3'>
+
+            <div className="flex flex-col space-y-3 mt-auto pt-2">
+              <div className="flex justify-end space-x-3">
                 <button
+                  type="button"
+                  disabled={publishBusy}
                   onClick={closePublishModal}
-                  className="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  className="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleModalPublish('publish')}
-                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  type="button"
+                  disabled={publishBusy || comparisonDrafts.length === 0}
+                  onClick={() => void handlePublishConfirm()}
+                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
                 >
-                  Publish
+                  {publishBusy ? 'Publishing…' : 'Publish'}
                 </button>
               </div>
-              {/* <p className='text-sm'><b>Note: </b>Publishing will clear all previously saved reports.</p> */}
             </div>
           </div>
         </div>

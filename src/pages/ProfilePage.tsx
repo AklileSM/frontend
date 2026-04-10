@@ -72,6 +72,20 @@ function openUploadedMedia(navigate: ReturnType<typeof useNavigate>, u: ApiMyUpl
   window.location.assign(url);
 }
 
+function comparisonDraftDisplayName(d: ApiComparisonDraft): string {
+  const t = d.label?.trim();
+  if (t) return t;
+  return `${d.file_id.slice(0, 8)}…`;
+}
+
+function comparisonDraftDownloadFilename(d: ApiComparisonDraft): string {
+  const t = d.label?.trim();
+  const base = t
+    ? t.replace(/[<>:"/\\|?*]+/g, '_').replace(/\s+/g, '_').slice(0, 120)
+    : `comparison-draft-${d.id.slice(0, 8)}`;
+  return `${base}.pdf`;
+}
+
 function formatWhen(iso: string): string {
   try {
     const d = new Date(iso);
@@ -801,7 +815,8 @@ const ProfilePage: React.FC = () => {
       <section className="mb-10">
         <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Comparison drafts</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Saved compare drafts. Publishing from Compare stitches these into one report and clears them.
+          Saved compare drafts. From Compare you can publish a consolidated PDF and choose which drafts to
+          include; drafts you do not include stay here.
         </p>
 
         {draftsError ? (
@@ -832,7 +847,7 @@ const ProfilePage: React.FC = () => {
                     Saved
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
-                    File
+                    Comparison
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">
                     Notes
@@ -851,9 +866,12 @@ const ProfilePage: React.FC = () => {
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
                       {formatWhen(d.created_at)}
                     </td>
-                    <td className="max-w-[140px] px-4 py-3">
-                      <span className="font-mono text-xs text-gray-700 dark:text-gray-300" title={d.file_id}>
-                        {d.file_id.slice(0, 8)}…
+                    <td className="max-w-xs px-4 py-3">
+                      <span
+                        className="text-sm text-gray-800 dark:text-gray-200"
+                        title={d.label?.trim() ? `${d.label} (${d.file_id})` : d.file_id}
+                      >
+                        {comparisonDraftDisplayName(d)}
                       </span>
                     </td>
                     <td className="max-w-md px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
@@ -883,15 +901,12 @@ const ProfilePage: React.FC = () => {
                           navigate('/pdfViewer', {
                             state: {
                               pdfUrl: d.pdf_url!,
-                              title: `Comparison draft ${d.id.slice(0, 8)}…`,
+                              title: comparisonDraftDisplayName(d),
                             },
                           })
                         }
                         onDownload={() =>
-                          void triggerFileDownload(
-                            d.pdf_url!,
-                            `comparison-draft-${d.id.slice(0, 8)}.pdf`,
-                          )
+                          void triggerFileDownload(d.pdf_url!, comparisonDraftDownloadFilename(d))
                         }
                         onEditCompare={() =>
                           navigate(`/Compare?draft=${encodeURIComponent(d.id)}`)

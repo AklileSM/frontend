@@ -490,6 +490,8 @@ export interface ApiReport {
 export interface ApiComparisonDraft {
   id: string;
   file_id: string;
+  /** e.g. left display name vs right display name */
+  label: string | null;
   manual_observations: string | null;
   flags: string[];
   pdf_url: string | null;
