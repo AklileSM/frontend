@@ -1685,7 +1685,7 @@ const ComparePage: React.FC = () => {
                 {saveDraftKind === 'update' ? 'Updating draft…' : 'Saving draft…'}
               </p>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Building the PDF and syncing to your account. This may take a moment.
+                Saved drafts can be found in the profile page.
               </p>
             </div>
           </div>
