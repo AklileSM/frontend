@@ -907,6 +907,8 @@ const ComparePage: React.FC = () => {
           setComparisonDrafts((prev) =>
             prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)),
           );
+          setEditingDraftId(null);
+          navigate('/Compare', { replace: true });
         } else {
           const draft = await createComparisonDraftWithPdf({
             pdfBlob,
