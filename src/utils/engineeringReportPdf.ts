@@ -319,13 +319,13 @@ export function buildComparisonFieldObservationPdf(input: {
   metaRow('Issue date', input.issueDate.toLocaleDateString(undefined, { dateStyle: 'long' }));
   metaRow('Project', input.projectName);
   metaRow('Prepared by', input.preparedBy);
-  metaRow('Subject', 'Comparative assessment — two visual records (application left / right)');
+  metaRow('Subject', 'Comparative assessment of two visual records (application left / right)');
 
   const scopeSummary = [
     input.left &&
-      `Reference A: "${input.left.fileName}" — ${input.left.roomOrZone}, capture ${input.left.captureDate}.`,
+      `Reference A: "${input.left.fileName}", ${input.left.roomOrZone}, capture ${input.left.captureDate}.`,
     input.right &&
-      `Reference B: "${input.right.fileName}" — ${input.right.roomOrZone}, capture ${input.right.captureDate}.`,
+      `Reference B: "${input.right.fileName}" , ${input.right.roomOrZone}, capture ${input.right.captureDate}.`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -361,10 +361,10 @@ export function buildComparisonFieldObservationPdf(input: {
 
   writeSectionHeading(String(sectionNo++), "AUTHOR COMMENTS — DUAL VIEW");
   if (input.left) {
-    writeParagraph(`Reference A — notes: ${input.left.notes || '—'}`, 10, 'normal');
+    writeParagraph(`Reference A notes: ${input.left.notes || '—'}`, 10, 'normal');
   }
   if (input.right) {
-    writeParagraph(`Reference B — notes: ${input.right.notes || '—'}`, 10, 'normal');
+    writeParagraph(`Reference B notes: ${input.right.notes || '—'}`, 10, 'normal');
   }
 
   const flagLine = (label: string, f: FieldObservationFlags) => {
