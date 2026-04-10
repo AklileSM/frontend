@@ -71,6 +71,12 @@ type CameraSyncState = {
   seq: number;
 };
 
+type CompareNoticeState = {
+  title: string;
+  message: string;
+  variant: 'info' | 'error';
+};
+
 const ComparePage: React.FC = () => {
   const { dataByDate } = useCaptureDatesSummary();
   const availableDates = useMemo(
@@ -199,6 +205,22 @@ const ComparePage: React.FC = () => {
   const [publishSelectedIds, setPublishSelectedIds] = useState<string[]>([]);
   const [publishModalLoading, setPublishModalLoading] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
+  const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+
+  const [compareNotice, setCompareNotice] = useState<CompareNoticeState | null>(null);
+
+  const showCompareNotice = useCallback(
+    (message: string, variant: 'info' | 'error' = 'info', title?: string) => {
+      setCompareNotice({
+        message,
+        variant,
+        title: title ?? (variant === 'error' ? 'Error' : 'Notice'),
+      });
+    },
+    [],
+  );
+
+  const closeCompareNotice = useCallback(() => setCompareNotice(null), []);
 
   const openPublishModal = async () => {
     setValidationMessage(null);
@@ -209,7 +231,10 @@ const ComparePage: React.FC = () => {
       setPublishSelectedIds(drafts.map((d) => d.id));
       setIsModalOpen(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not load comparison drafts.');
+      showCompareNotice(
+        e instanceof Error ? e.message : 'Could not load comparison drafts.',
+        'error',
+      );
     } finally {
       setPublishModalLoading(false);
     }
@@ -456,7 +481,7 @@ const ComparePage: React.FC = () => {
     }
 
     if (fileUrl === rightSelectedFile) {
-      alert('This file is already selected for the right view!');
+      showCompareNotice('This file is already selected for the right view!', 'info', 'Cannot select');
       return;
     }
 
@@ -471,7 +496,7 @@ const ComparePage: React.FC = () => {
       });
 
       if (leftRoomNumber !== rightRoomNumber) {
-        alert('Please select files from the same room.');
+        showCompareNotice('Please select files from the same room.', 'info', 'Cannot compare');
         return;
       }
     }
@@ -504,7 +529,7 @@ const ComparePage: React.FC = () => {
     }
 
     if (fileUrl === leftSelectedFile) {
-      alert('This file is already selected for the left view!');
+      showCompareNotice('This file is already selected for the left view!', 'info', 'Cannot select');
       return;
     }
 
@@ -519,7 +544,7 @@ const ComparePage: React.FC = () => {
       });
 
       if (rightRoomNumber !== leftRoomNumber) {
-        alert('Please select files from the same room.');
+        showCompareNotice('Please select files from the same room.', 'info', 'Cannot compare');
         return;
       }
     }
@@ -689,8 +714,10 @@ const ComparePage: React.FC = () => {
         if (cancelled) return;
         const raw = d.state_json;
         if (!isCompareDraftStateV1(raw)) {
-          alert(
+          showCompareNotice(
             'This draft has no saved comparison session (older drafts only store the PDF). Open the PDF from your profile, or start a new comparison.',
+            'info',
+            'Draft unavailable',
           );
           setEditingDraftId(null);
           return;
@@ -718,7 +745,10 @@ const ComparePage: React.FC = () => {
         }
       } catch (e) {
         if (!cancelled) {
-          alert(e instanceof Error ? e.message : 'Could not load comparison draft.');
+          showCompareNotice(
+            e instanceof Error ? e.message : 'Could not load comparison draft.',
+            'error',
+          );
           setEditingDraftId(null);
         }
       }
@@ -727,24 +757,27 @@ const ComparePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [draftQueryId]);
+  }, [draftQueryId, showCompareNotice]);
 
   const publishReportsWithIds = async (draftIds: string[]) => {
     if (draftIds.length === 0) {
-      alert('Select at least one draft to publish.');
+      showCompareNotice('Select at least one draft to publish.', 'error');
       return;
     }
 
     const idSet = new Set(draftIds);
     const orderedDrafts = comparisonDrafts.filter((d) => idSet.has(d.id));
     if (orderedDrafts.length === 0) {
-      alert('No matching drafts to publish. Refresh and try again.');
+      showCompareNotice('No matching drafts to publish. Refresh and try again.', 'error');
       return;
     }
 
     const missingPdf = orderedDrafts.filter((d) => !d.pdf_url);
     if (missingPdf.length > 0) {
-      alert('One or more selected drafts have no PDF. Save each draft first.');
+      showCompareNotice(
+        'One or more selected drafts have no PDF. Save each draft first.',
+        'error',
+      );
       return;
     }
 
@@ -773,7 +806,7 @@ const ComparePage: React.FC = () => {
     const primaryFileId =
       orderedDrafts[0]?.file_id || leftSelectedFileId || rightSelectedFileId || comparisonDrafts[0]?.file_id;
     if (!primaryFileId) {
-      alert('Cannot publish without a file reference.');
+      showCompareNotice('Cannot publish without a file reference.', 'error');
       return;
     }
 
@@ -791,7 +824,7 @@ const ComparePage: React.FC = () => {
     setIsModalOpen(false);
     setEditingDraftId((cur) => (cur && draftIds.includes(cur) ? null : cur));
     navigate('/Compare', { replace: true });
-    alert('Published consolidated comparison report.');
+    showCompareNotice('Published consolidated comparison report.', 'info', 'Success');
   };
 
   const handlePublishConfirm = async () => {
@@ -804,13 +837,16 @@ const ComparePage: React.FC = () => {
     try {
       await publishReportsWithIds(publishSelectedIds);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Publish failed.');
+      showCompareNotice(e instanceof Error ? e.message : 'Publish failed.', 'error');
     } finally {
       setPublishBusy(false);
     }
   };
 
   const saveComparisonDraft = async () => {
+    const wasEditingDraft = Boolean(editingDraftId);
+    setSaveDraftBusy(true);
+    try {
     const session = readSession();
     const ref = fieldObservationReportReference();
     const projectName =
@@ -920,19 +956,25 @@ const ComparePage: React.FC = () => {
           });
           setComparisonDrafts((prev) => [...prev, draft]);
         }
+
+        showCompareNotice(
+          wasEditingDraft ? 'Comparison draft updated.' : 'Comparison draft saved.',
+          'info',
+          'Success',
+        );
+        resetBottomSectionInputs();
       } catch (e) {
-        alert(
+        showCompareNotice(
           e instanceof Error
             ? e.message
             : 'Could not save the compare report draft on the server.',
+          'error',
         );
         return;
       }
     }
-
-    alert(editingDraftId ? 'Comparison draft updated.' : 'Comparison draft saved.');
-    if (!editingDraftId) {
-      resetBottomSectionInputs();
+    } finally {
+      setSaveDraftBusy(false);
     }
   };
 
@@ -970,7 +1012,6 @@ const ComparePage: React.FC = () => {
                 {comparisonDrafts.find((d) => d.id === editingDraftId)?.label?.trim() ||
                   `${editingDraftId.slice(0, 8)}…`}
               </span>{' '}
-              — Save updates this draft.
             </p>
           ) : null}
         </div>
@@ -1304,18 +1345,23 @@ const ComparePage: React.FC = () => {
           <div className="flex justify-end mt-6 gap-3">
             <button
               type="button"
+              disabled={saveDraftBusy || publishModalLoading || publishBusy}
               onClick={() => void saveComparisonDraft()}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:transform-none disabled:cursor-wait"
             >
-              Save
+              {saveDraftBusy
+                ? editingDraftId
+                  ? 'Updating…'
+                  : 'Saving…'
+                : 'Save'}
             </button>
             <button
               type="button"
-              disabled={publishModalLoading}
+              disabled={publishModalLoading || saveDraftBusy || publishBusy}
               onClick={() => void openPublishModal()}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:transform-none disabled:cursor-wait"
             >
-              {publishModalLoading ? 'Loading…' : 'Generate Report'}
+              {publishModalLoading ? 'Generating…' : publishBusy ? 'Publishing…' : 'Generate Report'}
             </button>
           </div>
         </div>
@@ -1324,7 +1370,17 @@ const ComparePage: React.FC = () => {
       {/* Publish Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-999 p-4">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-xl w-full max-h-[90vh] flex flex-col">
+          <div className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-xl w-full max-h-[90vh] flex flex-col">
+            {publishBusy ? (
+              <div
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-white/80 text-gray-800 backdrop-blur-sm dark:bg-gray-900/80 dark:text-gray-100"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent dark:border-indigo-400" />
+                <span className="text-sm font-medium">Generating consolidated report…</span>
+              </div>
+            ) : null}
             <h2 className="text-xl font-semibold mb-1 text-gray-900 dark:text-gray-200">
               Publish consolidated report
             </h2>
@@ -1340,16 +1396,18 @@ const ComparePage: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-3 mb-2 text-sm">
                   <button
                     type="button"
+                    disabled={publishBusy}
                     onClick={selectAllPublishDrafts}
-                    className="text-indigo-600 hover:underline dark:text-indigo-400"
+                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
                   >
                     Select all
                   </button>
                   <span className="text-gray-400">·</span>
                   <button
                     type="button"
+                    disabled={publishBusy}
                     onClick={clearPublishDraftSelection}
-                    className="text-indigo-600 hover:underline dark:text-indigo-400"
+                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
                   >
                     Clear
                   </button>
@@ -1360,7 +1418,8 @@ const ComparePage: React.FC = () => {
                       <input
                         id={`publish-draft-${d.id}`}
                         type="checkbox"
-                        className="form-checkbox mt-1 h-4 w-4 shrink-0 text-indigo-600"
+                        disabled={publishBusy}
+                        className="form-checkbox mt-1 h-4 w-4 shrink-0 text-indigo-600 disabled:cursor-not-allowed"
                         checked={publishSelectedIds.includes(d.id)}
                         onChange={() => togglePublishDraft(d.id)}
                       />
@@ -1402,7 +1461,7 @@ const ComparePage: React.FC = () => {
                   type="button"
                   disabled={publishBusy || comparisonDrafts.length === 0}
                   onClick={() => void handlePublishConfirm()}
-                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
+                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-wait"
                 >
                   {publishBusy ? 'Publishing…' : 'Publish'}
                 </button>
@@ -1411,6 +1470,54 @@ const ComparePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {compareNotice ? (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-gray-900/60 p-4 dark:bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="compare-notice-title"
+          aria-describedby="compare-notice-message"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeCompareNotice();
+          }}
+        >
+          <div
+            className={`w-full max-w-md rounded-lg border bg-white p-6 shadow-xl dark:bg-boxdark dark:text-white ${
+              compareNotice.variant === 'error'
+                ? 'border-danger/40 dark:border-danger/50'
+                : 'border-stroke dark:border-strokedark'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="compare-notice-title"
+              className={`text-lg font-semibold ${
+                compareNotice.variant === 'error'
+                  ? 'text-danger dark:text-red-400'
+                  : 'text-gray-900 dark:text-gray-100'
+              }`}
+            >
+              {compareNotice.title}
+            </h2>
+            <p
+              id="compare-notice-message"
+              className="mt-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+            >
+              {compareNotice.message}
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closeCompareNotice}
+                className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isScreenshotModalOpen && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-999">
