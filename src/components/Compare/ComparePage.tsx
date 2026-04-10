@@ -206,6 +206,7 @@ const ComparePage: React.FC = () => {
   const [publishModalLoading, setPublishModalLoading] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+  const [saveDraftKind, setSaveDraftKind] = useState<'create' | 'update'>('create');
 
   const [compareNotice, setCompareNotice] = useState<CompareNoticeState | null>(null);
 
@@ -845,6 +846,7 @@ const ComparePage: React.FC = () => {
 
   const saveComparisonDraft = async () => {
     const wasEditingDraft = Boolean(editingDraftId);
+    setSaveDraftKind(wasEditingDraft ? 'update' : 'create');
     setSaveDraftBusy(true);
     try {
     const session = readSession();
@@ -1369,103 +1371,165 @@ const ComparePage: React.FC = () => {
   
       {/* Publish Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-999 p-4">
-          <div className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-xl w-full max-h-[90vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-sm dark:bg-black/80"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="publish-modal-title"
+        >
+          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-950 dark:ring-white/10">
             {publishBusy ? (
               <div
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-white/80 text-gray-800 backdrop-blur-sm dark:bg-gray-900/80 dark:text-gray-100"
+                className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-white/95 px-6 backdrop-blur-md dark:bg-gray-950/95"
                 aria-live="polite"
                 aria-busy="true"
               >
-                <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent dark:border-indigo-400" />
-                <span className="text-sm font-medium">Generating consolidated report…</span>
+                <span className="h-11 w-11 animate-spin rounded-full border-[3px] border-indigo-200 border-t-indigo-600 dark:border-indigo-900 dark:border-t-indigo-400" />
+                <div className="text-center">
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">Building your report</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Merging PDFs and uploading…</p>
+                </div>
               </div>
             ) : null}
-            <h2 className="text-xl font-semibold mb-1 text-gray-900 dark:text-gray-200">
-              Publish consolidated report
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Choose which comparison drafts to merge into one PDF. Only the drafts you select are removed from
-              your drafts list after publishing; the rest stay available.
-            </p>
 
-            {comparisonDrafts.length === 0 ? (
-              <p className="text-gray-700 dark:text-gray-300 mb-4">No comparison drafts found.</p>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-3 mb-2 text-sm">
-                  <button
-                    type="button"
-                    disabled={publishBusy}
-                    onClick={selectAllPublishDrafts}
-                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 pt-5 pb-4 dark:border-gray-800">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2
+                    id="publish-modal-title"
+                    className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white"
                   >
-                    Select all
-                  </button>
-                  <span className="text-gray-400">·</span>
-                  <button
-                    type="button"
-                    disabled={publishBusy}
-                    onClick={clearPublishDraftSelection}
-                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
-                  >
-                    Clear
-                  </button>
+                    Publish consolidated report
+                  </h2>
+                  {comparisonDrafts.length > 0 ? (
+                    <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-200">
+                      {publishSelectedIds.length} of {comparisonDrafts.length} selected
+                    </span>
+                  ) : null}
                 </div>
-                <ul className="mb-4 max-h-64 overflow-y-auto rounded border border-stroke dark:border-strokedark divide-y divide-stroke dark:divide-strokedark">
-                  {comparisonDrafts.map((d) => (
-                    <li key={d.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-meta-4">
-                      <input
-                        id={`publish-draft-${d.id}`}
-                        type="checkbox"
-                        disabled={publishBusy}
-                        className="form-checkbox mt-1 h-4 w-4 shrink-0 text-indigo-600 disabled:cursor-not-allowed"
-                        checked={publishSelectedIds.includes(d.id)}
-                        onChange={() => togglePublishDraft(d.id)}
-                      />
-                      <label
-                        htmlFor={`publish-draft-${d.id}`}
-                        className="flex-1 cursor-pointer text-sm text-gray-800 dark:text-gray-200"
-                      >
-                        <span className="font-medium block">
-                          {d.label?.trim() || `${d.file_id.slice(0, 8)}…`}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(d.created_at).toLocaleString(undefined, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            {validationMessage && (
-              <p className="text-red-600 text-sm mb-4">{validationMessage}</p>
-            )}
-
-            <div className="flex flex-col space-y-3 mt-auto pt-2">
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  disabled={publishBusy}
-                  onClick={closePublishModal}
-                  className="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={publishBusy || comparisonDrafts.length === 0}
-                  onClick={() => void handlePublishConfirm()}
-                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-wait"
-                >
-                  {publishBusy ? 'Publishing…' : 'Publish'}
-                </button>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                  Merge selected drafts into one PDF. Only chosen drafts are removed from your list; the rest stay
+                  in your profile.
+                </p>
               </div>
+              <button
+                type="button"
+                disabled={publishBusy}
+                onClick={closePublishModal}
+                className="shrink-0 rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {comparisonDrafts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/80 py-12 text-center dark:border-gray-700 dark:bg-gray-900/40">
+                  <svg
+                    className="mb-3 h-12 w-12 text-gray-300 dark:text-gray-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No comparison drafts</p>
+                  <p className="mt-1 max-w-xs text-xs text-gray-500 dark:text-gray-400">
+                    Save a comparison from this page first, then return here to publish.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={publishBusy}
+                      onClick={selectAllPublishDrafts}
+                      className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      disabled={publishBusy}
+                      onClick={clearPublishDraftSelection}
+                      className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <ul className="space-y-2">
+                    {comparisonDrafts.map((d) => {
+                      const selected = publishSelectedIds.includes(d.id);
+                      return (
+                        <li key={d.id}>
+                          <label
+                            htmlFor={`publish-draft-${d.id}`}
+                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                              selected
+                                ? 'border-indigo-300 bg-indigo-50/90 ring-1 ring-indigo-200 dark:border-indigo-700 dark:bg-indigo-950/40 dark:ring-indigo-900'
+                                : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50/80 dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 dark:hover:bg-gray-900/60'
+                            } ${publishBusy ? 'pointer-events-none opacity-60' : ''}`}
+                          >
+                            <input
+                              id={`publish-draft-${d.id}`}
+                              type="checkbox"
+                              disabled={publishBusy}
+                              className="form-checkbox mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed dark:border-gray-600 dark:bg-gray-900"
+                              checked={selected}
+                              onChange={() => togglePublishDraft(d.id)}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {d.label?.trim() || `${d.file_id.slice(0, 8)}…`}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(d.created_at).toLocaleString(undefined, {
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                })}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+
+              {validationMessage ? (
+                <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+                  {validationMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/90 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/60 sm:flex-row sm:items-center sm:justify-end">
+              <button
+                type="button"
+                disabled={publishBusy}
+                onClick={closePublishModal}
+                className="order-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:order-1 sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={publishBusy || comparisonDrafts.length === 0}
+                onClick={() => void handlePublishConfirm()}
+                className="order-1 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:from-indigo-500 hover:to-violet-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-950 sm:order-2 sm:w-auto"
+              >
+                {publishBusy ? 'Publishing…' : 'Publish merged report'}
+              </button>
             </div>
           </div>
         </div>
@@ -1473,7 +1537,7 @@ const ComparePage: React.FC = () => {
 
       {compareNotice ? (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-gray-900/60 p-4 dark:bg-black/60"
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/60 p-4 dark:bg-black/60"
           role="dialog"
           aria-modal="true"
           aria-labelledby="compare-notice-title"
@@ -1640,6 +1704,27 @@ const ComparePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {saveDraftBusy ? (
+        <div
+          className="fixed inset-0 z-[12000] flex cursor-wait items-center justify-center bg-slate-950/65 backdrop-blur-sm dark:bg-black/75"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label={saveDraftKind === 'update' ? 'Updating draft' : 'Saving draft'}
+        >
+          <div className="pointer-events-none flex max-w-sm flex-col items-center gap-5 rounded-2xl bg-white px-10 py-9 text-center shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+            <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-indigo-100 border-t-indigo-600 dark:border-indigo-950 dark:border-t-indigo-400" />
+            <div>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {saveDraftKind === 'update' ? 'Updating draft…' : 'Saving draft…'}
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Building the PDF and syncing to your account. This may take a moment.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isBackModalOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-9999">
