@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CalendarMonthYearControls from '../CalendarMonthYearControls';
 
 interface CompareCalendarProps {
   availableDates?: string[];
@@ -43,15 +44,6 @@ const CompareCalendar: React.FC<CompareCalendarProps> = ({ availableDates = [], 
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const handleYearChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setCurrentDate(new Date(Number(event.target.value), currentDate.getMonth(), 1));
-  };
-
-  const handleMonthChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setCurrentDate(new Date(currentDate.getFullYear(), Number(event.target.value), 1));
-  };
-
-  const yearsRange = Array.from({ length: 21 }, (_, i) => currentDate.getFullYear() - 10 + i);
   const calendarDays = generateCalendarDays();
 
   return (
@@ -60,41 +52,12 @@ const CompareCalendar: React.FC<CompareCalendarProps> = ({ availableDates = [], 
         <button onClick={handlePrevMonth} className="px-2 py-1 text-primary text-sm">
           &#8592;
         </button>
-        <div className="text-sm font-semibold flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-black dark:text-white min-w-0 flex-1 px-1">
-          <div className="relative flex items-center min-w-0">
-            <select
-              value={currentDate.getMonth()}
-              onChange={handleMonthChange}
-              aria-label="Month"
-              className="appearance-none bg-transparent text-black dark:text-white text-sm font-semibold focus:outline-none cursor-pointer pr-6 no-scrollbar max-w-[10rem] truncate"
-            >
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i} value={i} className="bg-gray-100 dark:bg-gray-800 text-black dark:text-white">
-                  {new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-primary pointer-events-none">
-              &#8595;
-            </span>
-          </div>
-          <div className="relative flex items-center">
-            <select
-              value={currentDate.getFullYear()}
-              onChange={handleYearChange}
-              aria-label="Year"
-              className="appearance-none bg-transparent text-black dark:text-white text-sm font-semibold focus:outline-none cursor-pointer pr-6 no-scrollbar"
-            >
-              {yearsRange.map((year) => (
-                <option key={year} value={year} className="bg-gray-100 dark:bg-gray-800 text-black dark:text-white">
-                  {year}
-                </option>
-              ))}
-            </select>
-            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-primary pointer-events-none">
-              &#8595;
-            </span>
-          </div>
+        <div className="min-w-0 flex-1">
+          <CalendarMonthYearControls
+            currentDate={currentDate}
+            onCurrentDateChange={setCurrentDate}
+            variant="default"
+          />
         </div>
         <button onClick={handleNextMonth} className="px-2 py-1 text-primary text-sm">
           &#8594;

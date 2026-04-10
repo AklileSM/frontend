@@ -329,6 +329,109 @@ function ReportActionsMenu({
   );
 }
 
+function ComparisonDraftActionsMenu({
+  draft,
+  onOpenPdf,
+  onDownload,
+  onEditCompare,
+  onRequestDelete,
+  busy,
+}: {
+  draft: ApiComparisonDraft;
+  onOpenPdf: () => void;
+  onDownload: () => void;
+  onEditCompare: () => void;
+  onRequestDelete: () => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <div className="flex justify-end">
+      <button
+        ref={anchorRef}
+        type="button"
+        disabled={busy}
+        aria-label="Comparison draft actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="rounded p-1.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-meta-4 disabled:opacity-50"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="h-5 w-5"
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"
+          />
+        </svg>
+      </button>
+      <ProfilePortalMenu open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!draft.pdf_url || busy}
+          onClick={() => {
+            if (draft.pdf_url) onOpenPdf();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+        >
+          Open PDF
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!draft.pdf_url || busy}
+          onClick={() => {
+            if (draft.pdf_url) onDownload();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-meta-4"
+        >
+          Download
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onEditCompare();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-meta-4"
+        >
+          Edit in Compare
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onRequestDelete();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+        >
+          Delete
+        </button>
+      </ProfilePortalMenu>
+    </div>
+  );
+}
+
 function UploadActionsMenu({
   upload,
   onView,
@@ -772,11 +875,11 @@ const ProfilePage: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        disabled={!d.pdf_url}
-                        onClick={() =>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <ComparisonDraftActionsMenu
+                        draft={d}
+                        busy={deletingDraftId === d.id}
+                        onOpenPdf={() =>
                           navigate('/pdfViewer', {
                             state: {
                               pdfUrl: d.pdf_url!,
@@ -784,25 +887,17 @@ const ProfilePage: React.FC = () => {
                             },
                           })
                         }
-                        className="mr-2 rounded bg-gray-200 px-3 py-1 text-xs font-medium text-gray-800 disabled:opacity-50 dark:bg-meta-4 dark:text-gray-200"
-                      >
-                        Open
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/Compare?draft=${encodeURIComponent(d.id)}`)}
-                        className="mr-2 rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:opacity-90"
-                      >
-                        Edit in Compare
-                      </button>
-                      <button
-                        type="button"
-                        disabled={deletingDraftId === d.id}
-                        onClick={() => void confirmDeleteDraft(d.id)}
-                        className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-                      >
-                        {deletingDraftId === d.id ? 'Deleting…' : 'Delete'}
-                      </button>
+                        onDownload={() =>
+                          void triggerFileDownload(
+                            d.pdf_url!,
+                            `comparison-draft-${d.id.slice(0, 8)}.pdf`,
+                          )
+                        }
+                        onEditCompare={() =>
+                          navigate(`/Compare?draft=${encodeURIComponent(d.id)}`)
+                        }
+                        onRequestDelete={() => void confirmDeleteDraft(d.id)}
+                      />
                     </td>
                   </tr>
                 ))}
