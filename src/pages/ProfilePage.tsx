@@ -925,8 +925,7 @@ const ProfilePage: React.FC = () => {
       <section className="mb-10">
         <h3 className="mb-2 text-lg font-semibold text-black dark:text-white">Field observation drafts</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Drafts saved from Static, 360°, and point cloud viewers. Open one to continue editing; publish from the
-          viewer when you are ready. Each draft is published on its own (no merged publish).
+          Drafts saved from Static, 360°, and point cloud viewers.
         </p>
 
         {viewerDraftsError ? (

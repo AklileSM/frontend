@@ -1,5 +1,5 @@
 // StaticViewer.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import imageDescriptions from '../utils/imageDescriptions';
 import { fetchImageDescription } from '../services/imageDescriptionLogic';
@@ -32,6 +32,12 @@ type StaticViewerState = {
   captureDate?: string;
 };
 
+type ViewerDraftNoticeState = {
+  title: string;
+  message: string;
+  variant: 'info' | 'error';
+};
+
 const StaticViewer: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,6 +47,21 @@ const StaticViewer: React.FC = () => {
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+  const [saveDraftKind, setSaveDraftKind] = useState<'create' | 'update'>('create');
+  const [viewerNotice, setViewerNotice] = useState<ViewerDraftNoticeState | null>(null);
+
+  const showViewerNotice = useCallback(
+    (message: string, variant: 'info' | 'error' = 'info', title?: string) => {
+      setViewerNotice({
+        message,
+        variant,
+        title: title ?? (variant === 'error' ? 'Error' : 'Notice'),
+      });
+    },
+    [],
+  );
+
+  const closeViewerNotice = useCallback(() => setViewerNotice(null), []);
 
   const imageUrl = ctx.imageUrl || '/Images/panoramas/20241007/room02.jpg';
   const fileId = ctx.fileId;
@@ -230,9 +251,14 @@ const StaticViewer: React.FC = () => {
 
   const handleSaveDraft = async () => {
     if (!fileId?.trim()) {
-      window.alert('Open a file from the room explorer so the report is linked to an asset, then save a draft.');
+      showViewerNotice(
+        'Open a file from the room explorer so the report is linked to an asset, then save a draft.',
+        'error',
+      );
       return;
     }
+    const wasEditingDraft = Boolean(editingDraftId);
+    setSaveDraftKind(wasEditingDraft ? 'update' : 'create');
     setSaveDraftBusy(true);
     try {
       const st = buildDraftState();
@@ -256,8 +282,16 @@ const StaticViewer: React.FC = () => {
         setEditingDraftId(created.id);
         setSearchParams({ draft: created.id }, { replace: true });
       }
+      showViewerNotice(
+        wasEditingDraft ? 'Field observation draft updated.' : 'Field observation draft saved.',
+        'info',
+        'Success',
+      );
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Could not save draft.');
+      showViewerNotice(
+        e instanceof Error ? e.message : 'Could not save draft.',
+        'error',
+      );
     } finally {
       setSaveDraftBusy(false);
     }
@@ -536,11 +570,6 @@ const StaticViewer: React.FC = () => {
           {draftLoadError}
         </p>
       ) : null}
-      {editingDraftId ? (
-        <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-          Editing draft — Save updates your draft; Generate report → Publish stores the PDF and removes this draft.
-        </p>
-      ) : null}
       <div className="flex justify-end mr-5 -mt-15 mb-3 gap-3">
         <button
           type="button"
@@ -552,7 +581,11 @@ const StaticViewer: React.FC = () => {
               : 'bg-indigo-600 text-white hover:bg-indigo-700' // Active styles
           }`}
         >
-          {saveDraftBusy ? 'Saving…' : 'Save draft'}
+          {saveDraftBusy
+            ? saveDraftKind === 'update'
+              ? 'Updating…'
+              : 'Saving…'
+            : 'Save'}
         </button>
         <button
           onClick={() => openPublishModal()}
@@ -568,6 +601,75 @@ const StaticViewer: React.FC = () => {
       </div>
 
       {/* Publish Modal */}
+      {viewerNotice ? (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/60 p-4 dark:bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="static-viewer-notice-title"
+          aria-describedby="static-viewer-notice-message"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeViewerNotice();
+          }}
+        >
+          <div
+            className={`w-full max-w-md rounded-lg border bg-white p-6 shadow-xl dark:bg-boxdark dark:text-white ${
+              viewerNotice.variant === 'error'
+                ? 'border-danger/40 dark:border-danger/50'
+                : 'border-stroke dark:border-strokedark'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="static-viewer-notice-title"
+              className={`text-lg font-semibold ${
+                viewerNotice.variant === 'error'
+                  ? 'text-danger dark:text-red-400'
+                  : 'text-gray-900 dark:text-gray-100'
+              }`}
+            >
+              {viewerNotice.title}
+            </h2>
+            <p
+              id="static-viewer-notice-message"
+              className="mt-3 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300"
+            >
+              {viewerNotice.message}
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closeViewerNotice}
+                className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {saveDraftBusy ? (
+        <div
+          className="fixed inset-0 z-[12000] flex cursor-wait items-center justify-center bg-slate-950/65 backdrop-blur-sm dark:bg-black/75"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label={saveDraftKind === 'update' ? 'Updating draft' : 'Saving draft'}
+        >
+          <div className="pointer-events-none flex max-w-sm flex-col items-center gap-5 rounded-2xl bg-white px-10 py-9 text-center shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+            <span className="h-12 w-12 animate-spin rounded-full border-[3px] border-indigo-100 border-t-indigo-600 dark:border-indigo-950 dark:border-t-indigo-400" />
+            <div>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {saveDraftKind === 'update' ? 'Updating draft…' : 'Saving draft…'}
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Saved drafts can be found in the profile page.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full">
