@@ -437,6 +437,79 @@ function ComparisonDraftActionsMenu({
   );
 }
 
+function ViewerFieldDraftActionsMenu({
+  onOpenViewer,
+  onRequestDelete,
+  busy,
+}: {
+  onOpenViewer: () => void;
+  onRequestDelete: () => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <div className="flex justify-end">
+      <button
+        ref={anchorRef}
+        type="button"
+        disabled={busy}
+        aria-label="Field observation draft actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="rounded p-1.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-meta-4 disabled:opacity-50"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="h-5 w-5"
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"
+          />
+        </svg>
+      </button>
+      <ProfilePortalMenu open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onOpenViewer();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-meta-4"
+        >
+          Open in viewer
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            onRequestDelete();
+            setOpen(false);
+          }}
+          className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-gray-100 dark:hover:bg-meta-4"
+        >
+          {busy ? 'Deleting…' : 'Delete'}
+        </button>
+      </ProfilePortalMenu>
+    </div>
+  );
+}
+
 function UploadActionsMenu({
   upload,
   onView,
@@ -1008,23 +1081,12 @@ const ProfilePage: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                      <button
-                        type="button"
-                        disabled={deletingViewerDraftId === d.id}
-                        onClick={() => openViewerFieldDraft(navigate, d)}
-                        className="mr-3 font-medium text-primary hover:underline disabled:opacity-50"
-                      >
-                        Open in viewer
-                      </button>
-                      <button
-                        type="button"
-                        disabled={deletingViewerDraftId === d.id}
-                        onClick={() => void confirmDeleteViewerFieldDraft(d.id)}
-                        className="font-medium text-danger hover:underline disabled:opacity-50"
-                      >
-                        {deletingViewerDraftId === d.id ? 'Deleting…' : 'Delete'}
-                      </button>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <ViewerFieldDraftActionsMenu
+                        busy={deletingViewerDraftId === d.id}
+                        onOpenViewer={() => openViewerFieldDraft(navigate, d)}
+                        onRequestDelete={() => void confirmDeleteViewerFieldDraft(d.id)}
+                      />
                     </td>
                   </tr>
                 ))}
