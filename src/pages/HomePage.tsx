@@ -166,7 +166,7 @@ const HomePage: React.FC = () => {
                   ref={roomRef}
                   onMouseEnter={(e) => handleRoomHover(e, 'room1')}
                   onMouseLeave={handleRoomLeave}
-                  onClick={() => alert('No Data available for Room 1')}
+                  onClick={(e) => handleRoomClick(e, 'room1')}
                   className="absolute top-[15%] left-[6.5%] w-[25%] h-[20%] sm:w-[4%] sm:h-[8%] md:w-[3%] md:h-[6%] lg:w-[13%] lg:h-[30%] bg-black bg-opacity-0 hover:bg-opacity-10 cursor-pointer rounded"
                   title="Room 1"
                 />
