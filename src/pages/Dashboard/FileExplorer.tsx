@@ -245,7 +245,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     const mediaType = activeTab === 'pdfs' ? 'pdf' : activeTab === 'pointclouds' ? 'pointcloud' : 'image';
     setUploadError(null);
     setUploadOk(null);
-    setUploadProgress(mediaType === 'pointcloud' ? 0 : null);
+    setUploadProgress(0);
     setUploading(true);
     try {
       await uploadSingleFile({
@@ -253,7 +253,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
         roomSlug,
         mediaType,
         captureDate: selectedDate,
-        onProgress: mediaType === 'pointcloud' ? (percent) => setUploadProgress(percent) : undefined,
+        onProgress: (percent) => setUploadProgress(percent),
       });
       setUploadOk(activeTab === 'pointclouds' ? `Uploaded "${file.name}". Converting to Potree format \u2014 check back in a few minutes.` : `Uploaded "${file.name}".`);
       setFile(null);
