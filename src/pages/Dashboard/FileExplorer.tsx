@@ -3,7 +3,7 @@ import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useBlocker } from 'react-router-dom';
 import {
   ApiMediaFile,
   ApiRoom,
@@ -43,6 +43,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [roomSlug, setRoomSlug] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -247,6 +248,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     setUploadOk(null);
     setUploadProgress(0);
     setUploading(true);
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
     try {
       await uploadSingleFile({
         file,
@@ -254,6 +257,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
         mediaType,
         captureDate: selectedDate,
         onProgress: (percent) => setUploadProgress(percent),
+        signal: controller.signal,
       });
       setUploadOk(activeTab === 'pointclouds' ? `Uploaded "${file.name}". Converting to Potree format \u2014 check back in a few minutes.` : `Uploaded "${file.name}".`);
       setFile(null);
@@ -261,12 +265,44 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
       // stay on current tab after upload
       reloadExplorer();
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'Upload failed');
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        // user cancelled — reset silently
+      } else {
+        setUploadError(e instanceof Error ? e.message : 'Upload failed');
+      }
     } finally {
+      uploadAbortRef.current = null;
       setUploading(false);
       setUploadProgress(null);
     }
   };
+
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  const handleCancelUpload = () => {
+    uploadAbortRef.current?.abort();
+    setCancelConfirmOpen(false);
+  };
+
+  const blocker = useBlocker(uploading);
+
+  // When the router blocker fires, abort the upload and let navigation proceed
+  // only after the user confirms.
+  const confirmLeave = () => {
+    uploadAbortRef.current?.abort();
+    blocker.proceed?.();
+  };
+  const dismissLeave = () => {
+    blocker.reset?.();
+  };
+
+  // Warn before navigating away mid-upload
+  useEffect(() => {
+    if (!uploading) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [uploading]);
 
   // Auto-poll every 5 s when any visible point cloud is still converting.
   useEffect(() => {
@@ -524,6 +560,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                 >
                   {uploading ? (uploadProgress != null ? `Uploading… ${uploadProgress}%` : 'Uploading…') : 'Upload'}
                 </button>
+                {uploading && (
+                  <button
+                    type="button"
+                    onClick={() => setCancelConfirmOpen(true)}
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             )}
             {uploading && uploadProgress != null && (
@@ -535,7 +580,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                   />
                 </div>
                 <p className="mt-1 text-xs text-bodydark dark:text-gray-400">
-                  Pointcloud upload progress: {uploadProgress}%
+                  Upload progress: {uploadProgress}%
                 </p>
               </div>
             )}
@@ -611,6 +656,76 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                 className="rounded-lg bg-red-600 px-4 py-2 text-white shadow-md hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {deletingId ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Upload Confirmation Modal */}
+      {cancelConfirmOpen && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-upload-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2 id="cancel-upload-title" className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200">
+              Cancel upload?
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              The file won't be saved. This cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setCancelConfirmOpen(false)}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Keep uploading
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              >
+                Cancel upload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigate-away Guard Modal */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-upload-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2 id="leave-upload-title" className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200">
+              Leave page?
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Your upload is still in progress. Leaving will cancel it and the file won't be saved.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={dismissLeave}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={confirmLeave}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              >
+                Leave anyway
               </button>
             </div>
           </div>

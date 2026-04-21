@@ -248,6 +248,7 @@ async function uploadPointcloudInChunks(params: {
   captureDate: string;
   token: string;
   onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
 }): Promise<UploadSingleResponse> {
   const initForm = new FormData();
   initForm.append('room_slug', params.roomSlug);
@@ -260,6 +261,7 @@ async function uploadPointcloudInChunks(params: {
     method: 'POST',
     headers: { Authorization: `Bearer ${params.token}` },
     body: initForm,
+    signal: params.signal,
   });
   if (!initRes.ok) {
     throw new Error(await parseApiError(initRes));
@@ -287,6 +289,7 @@ async function uploadPointcloudInChunks(params: {
         method: 'POST',
         headers: { Authorization: `Bearer ${params.token}` },
         body: chunkForm,
+        signal: params.signal,
       });
       if (chunkRes.ok) {
         uploadedBytes += end - start;
@@ -327,6 +330,7 @@ async function uploadPointcloudInChunks(params: {
     method: 'POST',
     headers: { Authorization: `Bearer ${params.token}` },
     body: doneForm,
+    signal: params.signal,
   });
   if (!doneRes.ok) {
     throw new Error(await parseApiError(doneRes));
@@ -341,6 +345,7 @@ function uploadViaXhr(params: {
   file: File;
   contentType: string;
   onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
 }): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -362,6 +367,10 @@ function uploadViaXhr(params: {
     xhr.onerror = () => reject(new Error('Direct MinIO upload failed (network error)'));
     xhr.ontimeout = () => reject(new Error('Direct MinIO upload failed (timeout)'));
     xhr.timeout = 120000;
+    params.signal?.addEventListener('abort', () => {
+      xhr.abort();
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+    }, { once: true });
     xhr.send(params.file);
   });
 }
@@ -372,6 +381,7 @@ async function uploadPointcloudDirect(params: {
   captureDate: string;
   token: string;
   onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
 }): Promise<UploadSingleResponse> {
   const initForm = new FormData();
   initForm.append('room_slug', params.roomSlug);
@@ -384,6 +394,7 @@ async function uploadPointcloudDirect(params: {
     method: 'POST',
     headers: { Authorization: `Bearer ${params.token}` },
     body: initForm,
+    signal: params.signal,
   });
   if (!initRes.ok) {
     throw new Error(await parseApiError(initRes));
@@ -396,6 +407,7 @@ async function uploadPointcloudDirect(params: {
     file: params.file,
     contentType: params.file.type || 'application/octet-stream',
     onProgress: params.onProgress,
+    signal: params.signal,
   });
 
   const doneForm = new FormData();
@@ -404,6 +416,7 @@ async function uploadPointcloudDirect(params: {
     method: 'POST',
     headers: { Authorization: `Bearer ${params.token}` },
     body: doneForm,
+    signal: params.signal,
   });
   if (!doneRes.ok) {
     throw new Error(await parseApiError(doneRes));
@@ -417,6 +430,7 @@ export async function uploadSingleFile(params: {
   mediaType: 'image' | 'video' | 'pointcloud' | 'pdf';
   captureDate: string;
   onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
 }): Promise<UploadSingleResponse> {
   const token = getAccessToken();
   if (!token) {
@@ -431,8 +445,10 @@ export async function uploadSingleFile(params: {
         captureDate: params.captureDate,
         token,
         onProgress: params.onProgress,
+        signal: params.signal,
       });
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
       const message = err instanceof Error ? err.message : String(err);
       console.warn(
         `[upload] Direct MinIO pointcloud upload failed, falling back to chunked upload: ${message}`,
@@ -443,6 +459,7 @@ export async function uploadSingleFile(params: {
         captureDate: params.captureDate,
         token,
         onProgress: params.onProgress,
+        signal: params.signal,
       });
     }
   }
@@ -459,6 +476,7 @@ export async function uploadSingleFile(params: {
       Authorization: `Bearer ${token}`,
     },
     body: form,
+    signal: params.signal,
   });
 
   if (!response.ok) {
