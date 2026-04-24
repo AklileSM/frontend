@@ -3,7 +3,7 @@ import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useBlocker } from 'react-router-dom';
 import {
   ApiMediaFile,
   ApiRoom,
@@ -298,7 +298,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
+
+  const blocker = useBlocker(() => file !== null || uploading);
 
   const handleCancelUpload = () => {
     uploadAbortRef.current?.abort();
@@ -327,34 +328,26 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const handleConfirmLeave = () => {
     uploadAbortRef.current?.abort();
     setLeaveConfirmOpen(false);
-    if (pendingNavHref) navigate(pendingNavHref);
-    setPendingNavHref(null);
+    blocker.proceed?.();
   };
 
-  // Intercept in-app link clicks while uploading — show leave confirmation instead
-  useEffect(() => {
-    if (!uploading) return;
-    const handler = (e: MouseEvent) => {
-      const anchor = (e.target as Element).closest('a[href]');
-      if (!anchor) return;
-      const href = anchor.getAttribute('href');
-      if (!href || href.startsWith('#')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setPendingNavHref(href);
-      setLeaveConfirmOpen(true);
-    };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
-  }, [uploading]);
+  const handleCancelLeave = () => {
+    setLeaveConfirmOpen(false);
+    blocker.reset?.();
+  };
 
-  // Warn before tab close / reload mid-upload
+  // Open leave modal whenever React Router blocks a navigation attempt
   useEffect(() => {
-    if (!uploading) return;
+    if (blocker.state === 'blocked') setLeaveConfirmOpen(true);
+  }, [blocker.state]);
+
+  // Warn before tab close / reload / external navigation when file selected or uploading
+  useEffect(() => {
+    if (!file && !uploading) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [uploading]);
+  }, [file, uploading]);
 
   // Auto-poll every 5 s when any visible point cloud is still converting.
   useEffect(() => {
@@ -727,12 +720,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
               Leave page?
             </h2>
             <p className="mb-6 text-gray-700 dark:text-gray-300">
-              Your upload is still in progress. Leaving will cancel it and the file won't be saved.
+              {uploading
+                ? "Your upload is still in progress. Leaving will cancel it and the file won't be saved."
+                : "You have a file selected that hasn't been uploaded yet. Leaving will discard your selection."}
             </p>
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
-                onClick={() => { setLeaveConfirmOpen(false); setPendingNavHref(null); }}
+                onClick={handleCancelLeave}
                 className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
               >
                 Stay
