@@ -25,7 +25,7 @@ export type FileExplorerProps = {
 };
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectLabel }) => {
-  const { getDateForScope } = useSelectedDate();
+  const { getDateForScope, setDateForScope } = useSelectedDate();
   const dateScope = filterProjectSlug ?? EXPLORER_DATE_SCOPE_A6;
   const selectedDate = getDateForScope(dateScope);
   const { user } = useAuth();
@@ -53,10 +53,29 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [filePendingDelete, setFilePendingDelete] = useState<ApiMediaFile | null>(null);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 
+  const committedDateRef = useRef<string | null>(selectedDate);
+  const [pendingDateChange, setPendingDateChange] = useState<string | null>(null);
+  const [dateChangeConfirmOpen, setDateChangeConfirmOpen] = useState(false);
+
   useEffect(() => {
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedDate === committedDateRef.current) return;
+    if (file || uploading) {
+      setDateForScope(dateScope, committedDateRef.current);
+      setPendingDateChange(selectedDate);
+      setDateChangeConfirmOpen(true);
+    } else {
+      committedDateRef.current = selectedDate;
+      setUploadError(null);
+      setUploadOk(null);
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,6 +303,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const handleCancelUpload = () => {
     uploadAbortRef.current?.abort();
     setCancelConfirmOpen(false);
+  };
+
+  const handleConfirmDateChange = () => {
+    uploadAbortRef.current?.abort();
+    setUploading(false);
+    setUploadProgress(null);
+    setUploadError(null);
+    setUploadOk(null);
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    committedDateRef.current = pendingDateChange;
+    setDateForScope(dateScope, pendingDateChange);
+    setPendingDateChange(null);
+    setDateChangeConfirmOpen(false);
+  };
+
+  const handleCancelDateChange = () => {
+    setPendingDateChange(null);
+    setDateChangeConfirmOpen(false);
   };
 
   const handleConfirmLeave = () => {
@@ -705,6 +743,43 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                 className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
               >
                 Leave anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Change Guard Modal */}
+      {dateChangeConfirmOpen && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="date-change-title"
+            className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+          >
+            <h2 id="date-change-title" className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-200">
+              Unfinished upload
+            </h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              {uploading
+                ? 'An upload is in progress. Switching dates will cancel it and the file won\'t be saved.'
+                : 'You have a file selected that hasn\'t been uploaded yet. Switching dates will discard your selection.'}
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={handleCancelDateChange}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDateChange}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              >
+                {uploading ? 'Cancel upload & switch' : 'Discard & switch'}
               </button>
             </div>
           </div>
