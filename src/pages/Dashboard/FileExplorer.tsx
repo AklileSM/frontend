@@ -3,7 +3,7 @@ import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useNavigate, useBlocker } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ApiMediaFile,
   ApiRoom,
@@ -298,8 +298,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-
-  const blocker = useBlocker(() => file !== null || uploading);
+  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
+  const [leaveViaHistory, setLeaveViaHistory] = useState(false);
+  const popstateHandlerRef = useRef<(() => void) | null>(null);
 
   const handleCancelUpload = () => {
     uploadAbortRef.current?.abort();
@@ -327,19 +328,62 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const handleConfirmLeave = () => {
     uploadAbortRef.current?.abort();
+    // Remove popstate listener before navigating so it doesn't re-trigger
+    if (popstateHandlerRef.current) {
+      window.removeEventListener('popstate', popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
     setLeaveConfirmOpen(false);
-    blocker.proceed?.();
+    if (leaveViaHistory) {
+      setLeaveViaHistory(false);
+      // Undo the two guard pushStates we added (initial + re-push in handler), then step back
+      window.history.go(-3);
+    } else if (pendingNavHref) {
+      navigate(pendingNavHref);
+      setPendingNavHref(null);
+    }
   };
 
   const handleCancelLeave = () => {
     setLeaveConfirmOpen(false);
-    blocker.reset?.();
+    setPendingNavHref(null);
+    setLeaveViaHistory(false);
   };
 
-  // Open leave modal whenever React Router blocks a navigation attempt
+  // Intercept in-app link clicks when file selected or uploading
   useEffect(() => {
-    if (blocker.state === 'blocked') setLeaveConfirmOpen(true);
-  }, [blocker.state]);
+    if (!file && !uploading) return;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as Element).closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPendingNavHref(href);
+      setLeaveConfirmOpen(true);
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [file, uploading]);
+
+  // Intercept browser back/forward when file selected or uploading
+  useEffect(() => {
+    if (!file && !uploading) return;
+    // Push a guard entry so we can detect and cancel back/forward navigation
+    window.history.pushState(null, '');
+    const handler = () => {
+      window.history.pushState(null, '');
+      setLeaveViaHistory(true);
+      setLeaveConfirmOpen(true);
+    };
+    popstateHandlerRef.current = handler;
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      popstateHandlerRef.current = null;
+    };
+  }, [file, uploading]);
 
   // Warn before tab close / reload / external navigation when file selected or uploading
   useEffect(() => {
