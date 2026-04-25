@@ -25,7 +25,15 @@ const Thumbnail: React.FC<ThumbnailProps> = ({ src, type, altText, conversionSta
   const renderThumbnailContent = () => {
     switch (type) {
       case 'image':
-        return <img src={src} alt={altText || 'Image thumbnail'} className="w-full h-48 object-cover rounded-md" />;
+        return (
+          <img
+            src={src}
+            alt={altText || 'Image thumbnail'}
+            loading="lazy"
+            onError={(e) => { e.currentTarget.src = '/fallback-thumb.svg'; }}
+            className="w-full h-48 object-cover rounded-md"
+          />
+        );
 
       case 'video':
         return (
