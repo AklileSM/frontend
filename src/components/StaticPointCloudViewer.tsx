@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
 import {
@@ -20,6 +20,12 @@ import {
   type ViewerFieldDraftStateV1,
 } from '../utils/viewerFieldDraftState';
 
+type ViewerNoticeState = {
+  title: string;
+  message: string;
+  variant: 'info' | 'error';
+};
+
 export type StaticPointCloudViewerState = {
   modelUrl: string;
   fileId?: string;
@@ -39,6 +45,15 @@ const StaticPointCloudViewer: React.FC = () => {
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [saveDraftBusy, setSaveDraftBusy] = useState(false);
+  const [viewerNotice, setViewerNotice] = useState<ViewerNoticeState | null>(null);
+
+  const showViewerNotice = useCallback(
+    (message: string, variant: 'info' | 'error' = 'error', title?: string) => {
+      setViewerNotice({ message, variant, title: title ?? (variant === 'error' ? 'Error' : 'Notice') });
+    },
+    [],
+  );
+  const closeViewerNotice = useCallback(() => setViewerNotice(null), []);
 
   const modelUrl = ctx.modelUrl || '';
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -131,7 +146,7 @@ const StaticPointCloudViewer: React.FC = () => {
 
   const handleSaveDraft = async () => {
     if (!ctx.fileId?.trim()) {
-      window.alert('Open a point cloud from the explorer so the report is linked to an asset, then save a draft.');
+      showViewerNotice('Open a point cloud from the explorer so the report is linked to an asset, then save a draft.');
       return;
     }
     setSaveDraftBusy(true);
@@ -158,7 +173,7 @@ const StaticPointCloudViewer: React.FC = () => {
         setSearchParams({ draft: created.id }, { replace: true });
       }
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Could not save draft.');
+      showViewerNotice(e instanceof Error ? e.message : 'Could not save draft.');
     } finally {
       setSaveDraftBusy(false);
     }
@@ -251,7 +266,7 @@ const StaticPointCloudViewer: React.FC = () => {
           });
         }
       } catch (e) {
-        alert(
+        showViewerNotice(
           e instanceof Error
             ? `${e.message} The PDF was still downloaded.`
             : 'Could not save the report on the server. The PDF was still downloaded.',
@@ -417,6 +432,47 @@ const StaticPointCloudViewer: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {viewerNotice && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/60 p-4 dark:bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pcd-viewer-notice-title"
+          aria-describedby="pcd-viewer-notice-message"
+          onClick={(e) => { if (e.target === e.currentTarget) closeViewerNotice(); }}
+        >
+          <div
+            className={`w-full max-w-md rounded-lg border bg-white p-6 shadow-xl dark:bg-boxdark dark:text-white ${
+              viewerNotice.variant === 'error'
+                ? 'border-danger/40 dark:border-danger/50'
+                : 'border-stroke dark:border-strokedark'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="pcd-viewer-notice-title"
+              className={`text-lg font-semibold ${
+                viewerNotice.variant === 'error' ? 'text-danger dark:text-red-400' : 'text-gray-900 dark:text-gray-100'
+              }`}
+            >
+              {viewerNotice.title}
+            </h2>
+            <p id="pcd-viewer-notice-message" className="mt-3 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+              {viewerNotice.message}
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closeViewerNotice}
+                className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50">
