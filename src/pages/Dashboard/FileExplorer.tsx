@@ -3,7 +3,7 @@ import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ApiMediaFile,
   ApiRoom,
@@ -296,13 +296,66 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     }
   };
 
-  const location = useLocation();
-  const previousPathnameRef = useRef(location.pathname);
-  const revertingRef = useRef(false);
-  const pendingNavLocationRef = useRef<{ pathname: string; search: string; state: unknown } | null>(null);
+  // Refs for navigation guard — avoids stale closures in patched pushState
+  const guardActiveRef = useRef(false);
+  const pendingNavDestRef = useRef<string | null>(null);
+  const leaveViaBackRef = useRef(false);
+  const popstateHandlerRef = useRef<(() => void) | null>(null);
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  // Keep guard ref in sync with state so the patched pushState always sees current values
+  useEffect(() => {
+    guardActiveRef.current = file !== null || uploading;
+  }, [file, uploading]);
+
+  // Patch window.history.pushState once on mount to intercept all React Router forward navigations.
+  // Restores the original on unmount.
+  useEffect(() => {
+    const original = window.history.pushState.bind(window.history);
+    window.history.pushState = (...args: Parameters<typeof window.history.pushState>) => {
+      const url = args[2];
+      if (guardActiveRef.current && url != null) {
+        // Only intercept navigations to a different pathname
+        try {
+          const dest = new URL(url.toString(), window.location.origin);
+          if (dest.pathname !== window.location.pathname) {
+            pendingNavDestRef.current = url.toString();
+            setLeaveConfirmOpen(true);
+            return;
+          }
+        } catch { /* unparseable URL — let it through */ }
+      }
+      original(...args);
+    };
+    return () => { window.history.pushState = original; };
+  }, []);
+
+  // Block browser back/forward when file selected or uploading
+  useEffect(() => {
+    if (!file && !uploading) return;
+    window.history.pushState(null, ''); // guard entry
+    const handler = () => {
+      window.history.pushState(null, ''); // re-push to stay in place
+      leaveViaBackRef.current = true;
+      setLeaveConfirmOpen(true);
+    };
+    popstateHandlerRef.current = handler;
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      popstateHandlerRef.current = null;
+    };
+  }, [file, uploading]);
+
+  // Warn before tab close / reload / external navigation
+  useEffect(() => {
+    if (!file && !uploading) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [file, uploading]);
 
   const handleCancelUpload = () => {
     uploadAbortRef.current?.abort();
@@ -329,48 +382,37 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   };
 
   const handleConfirmLeave = () => {
+    // Remove popstate handler before navigating to avoid re-triggering
+    if (popstateHandlerRef.current) {
+      window.removeEventListener('popstate', popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    guardActiveRef.current = false; // disable guard so navigate() goes through the patch
     uploadAbortRef.current?.abort();
     setLeaveConfirmOpen(false);
-    const dest = pendingNavLocationRef.current;
-    pendingNavLocationRef.current = null;
-    if (dest) {
-      navigate(dest.pathname + dest.search, { state: dest.state });
+    if (leaveViaBackRef.current) {
+      leaveViaBackRef.current = false;
+      // Undo the initial guard push + the re-push in the handler, then go back one real step
+      window.history.go(-3);
+    } else {
+      const dest = pendingNavDestRef.current;
+      pendingNavDestRef.current = null;
+      if (dest) {
+        try {
+          const parsed = new URL(dest, window.location.origin);
+          navigate(parsed.pathname + parsed.search);
+        } catch {
+          navigate(dest);
+        }
+      }
     }
   };
 
   const handleCancelLeave = () => {
-    pendingNavLocationRef.current = null;
+    leaveViaBackRef.current = false;
+    pendingNavDestRef.current = null;
     setLeaveConfirmOpen(false);
   };
-
-  // Intercept all React Router navigation (links, buttons, back/forward) while file selected or uploading.
-  // When navigation is detected, immediately revert it and show the leave modal.
-  useEffect(() => {
-    if (location.pathname === previousPathnameRef.current) return;
-
-    if (revertingRef.current) {
-      revertingRef.current = false;
-      previousPathnameRef.current = location.pathname;
-      return;
-    }
-
-    if (file !== null || uploading) {
-      revertingRef.current = true;
-      pendingNavLocationRef.current = { pathname: location.pathname, search: location.search, state: location.state };
-      navigate(-1);
-      setLeaveConfirmOpen(true);
-    } else {
-      previousPathnameRef.current = location.pathname;
-    }
-  }, [location]);
-
-  // Warn before tab close / reload / external navigation when file selected or uploading
-  useEffect(() => {
-    if (!file && !uploading) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [file, uploading]);
 
   // Auto-poll every 5 s when any visible point cloud is still converting.
   useEffect(() => {
