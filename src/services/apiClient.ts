@@ -435,6 +435,11 @@ export async function uploadSingleFile(params: {
     throw new Error('You must be signed in to upload.');
   }
 
+  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+  if (params.file.size > MAX_UPLOAD_BYTES) {
+    throw new Error(`File is too large (${(params.file.size / 1024 / 1024 / 1024).toFixed(2)} GB). The maximum upload size is 5 GB.`);
+  }
+
   if (params.mediaType === 'pointcloud') {
     try {
       return await uploadPointcloudDirect({
