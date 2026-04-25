@@ -273,7 +273,10 @@ async function uploadPointcloudInChunks(params: {
   const totalChunks = Math.ceil(params.file.size / chunkSize);
   let uploadedBytes = 0;
   params.onProgress?.(0);
-  let nextChunkIndex = 0;
+  const getNextChunkIndex = (() => {
+    let i = 0;
+    return () => (i < totalChunks ? i++ : null);
+  })();
   const uploadOneChunkWithRetry = async (chunkIndex: number): Promise<void> => {
     let attempt = 0;
     while (attempt <= POINTCLOUD_CHUNK_MAX_RETRIES) {
@@ -310,11 +313,8 @@ async function uploadPointcloudInChunks(params: {
     { length: Math.min(POINTCLOUD_UPLOAD_CONCURRENCY, totalChunks) },
     async () => {
       while (true) {
-        const chunkIndex = nextChunkIndex;
-        nextChunkIndex += 1;
-        if (chunkIndex >= totalChunks) {
-          return;
-        }
+        const chunkIndex = getNextChunkIndex();
+        if (chunkIndex === null) return;
         await uploadOneChunkWithRetry(chunkIndex);
       }
     },
