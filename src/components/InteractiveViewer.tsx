@@ -1,7 +1,7 @@
 // InteractiveViewer.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, useProgress } from '@react-three/drei';
 import { TextureLoader, BackSide, WebGLRenderer, Scene, Camera } from 'three';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { extractDateFromImageRef, stripQueryLastPathSegment } from '../utils/imageViewerMeta';
@@ -57,6 +57,17 @@ const ScreenshotHelper: React.FC<{ setRefs: (gl: WebGLRenderer, scene: Scene, ca
   }, [gl, scene, camera, setRefs]);
 
   return null;
+};
+
+const CanvasLoadingOverlay: React.FC = () => {
+  const { progress, active } = useProgress();
+  if (!active) return null;
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/60 rounded-lg z-10 pointer-events-none">
+      <div className="animate-spin h-10 w-10 rounded-full border-4 border-gray-600 border-t-white mb-3" />
+      <span className="text-white text-sm font-medium">{Math.round(progress)}%</span>
+    </div>
+  );
 };
 
 const InteractiveViewer: React.FC = () => {
@@ -361,16 +372,19 @@ const InteractiveViewer: React.FC = () => {
       </div>
 
       <div ref={viewerRef} className="relative flex w-full h-[70vh] mt-4 bg-gray-700 rounded-lg overflow-hidden shadow-lg">
-        <div className="flex-grow">
+        <div className="relative flex-grow">
           <Canvas camera={{ fov: 70, position: [0, 0, 20] }}>
             <ScreenshotHelper setRefs={(gl, scene, camera) => {
               setGl(gl);
               setScene(scene);
               setCamera(camera);
             }} />
-            <PanoramicSphere imageUrl={imageUrl} />
+            <Suspense fallback={null}>
+              <PanoramicSphere imageUrl={imageUrl} />
+            </Suspense>
             <OrbitControls enablePan={true} enableZoom={false} dampingFactor={0.3} enableDamping={true} />
           </Canvas>
+          <CanvasLoadingOverlay />
 
           <button
             onClick={toggleFullscreen}

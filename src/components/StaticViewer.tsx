@@ -85,6 +85,8 @@ const StaticViewer: React.FC = () => {
   // State to hold the API response and loading status
   const [output, setOutput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const loadingPhases = ['Generating.', 'Generating..', 'Generating...'];
   let loadingIndex = 0; // This counter is used for the loading animation
@@ -472,7 +474,21 @@ const StaticViewer: React.FC = () => {
 
       {/* HD Image Display */}
       <div className="relative w-full h-[70vh] mt-4 bg-gray-700 rounded-lg overflow-hidden shadow-lg flex items-center justify-center">
-        <img src={imageUrl} alt={fileName} className="object-contain w-full h-full rounded-lg" />
+        {!imgLoaded && !imgError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="animate-spin h-10 w-10 rounded-full border-4 border-gray-600 border-t-white" />
+          </div>
+        )}
+        {imgError && (
+          <p className="text-red-400 text-sm">Failed to load image.</p>
+        )}
+        <img
+          src={imageUrl}
+          alt={fileName}
+          className={`object-contain w-full h-full rounded-lg transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => { setImgError(true); setImgLoaded(false); }}
+        />
       </div>
 
       {/* Input fields under the viewer */}
