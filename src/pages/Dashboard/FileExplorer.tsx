@@ -539,9 +539,35 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     );
   };
 
+  const renderSkeletonThumbnail = (key: number) => (
+    <div key={key} className="flex flex-col mb-4">
+      <div className="p-2">
+        <div className="animate-pulse rounded-md bg-gray-200 dark:bg-gray-700 h-48 w-full" />
+      </div>
+      <div className="animate-pulse rounded bg-gray-200 dark:bg-gray-700 h-3 w-2/3 mx-auto mt-2" />
+    </div>
+  );
+
+  const renderSkeletonRoom = (thumbCount: number, key: number) => (
+    <div key={key} className="mb-4">
+      <div className="animate-pulse flex items-center bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-md shadow">
+        <div className="flex-grow h-5 rounded bg-gray-300 dark:bg-gray-600 w-1/3" />
+        <div className="h-4 w-4 rounded bg-gray-300 dark:bg-gray-600 ml-2" />
+      </div>
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        {Array.from({ length: thumbCount }, (_, i) => renderSkeletonThumbnail(i))}
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     if (loading) {
-      return <p className="text-center text-bodydark dark:text-gray-400">Loading files...</p>;
+      return (
+        <div>
+          {renderSkeletonRoom(4, 0)}
+          {renderSkeletonRoom(2, 1)}
+        </div>
+      );
     }
 
     if (error) {
