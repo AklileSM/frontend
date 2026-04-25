@@ -574,6 +574,13 @@ export function getConversionStatus(fileId: string): Promise<ApiConversionStatus
   return getJson<ApiConversionStatus>(`/files/${fileId}/conversion-status`);
 }
 
+export async function retryPointcloudConversion(fileId: string): Promise<void> {
+  const response = await apiFetch(`/files/${fileId}/retry-conversion`, { method: 'POST' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+
 /** Upload a published field-observation PDF: stored in MinIO and recorded in DB for the signed-in user. */
 export async function createReportWithPdf(params: {
   pdfBlob: Blob;

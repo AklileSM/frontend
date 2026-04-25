@@ -12,6 +12,7 @@ import {
   getExplorerByDate,
   listProjects,
   listRooms,
+  retryPointcloudConversion,
   uploadSingleFile,
 } from '../../services/apiClient';
 import type { AuthUser } from '../../auth/authSession';
@@ -52,6 +53,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filePendingDelete, setFilePendingDelete] = useState<ApiMediaFile | null>(null);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
 
   const committedDateRef = useRef<string | null>(selectedDate);
   const [pendingDateChange, setPendingDateChange] = useState<string | null>(null);
@@ -259,6 +262,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     }
   };
 
+  const handleRetryConversion = async (fileId: string) => {
+    setRetryingId(fileId);
+    setRetryErrors((prev) => { const next = { ...prev }; delete next[fileId]; return next; });
+    try {
+      await retryPointcloudConversion(fileId);
+      reloadExplorer();
+    } catch (e) {
+      setRetryErrors((prev) => ({ ...prev, [fileId]: e instanceof Error ? e.message : 'Retry failed' }));
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   const handleUpload = async () => {
     if (!selectedDate || !file || !roomSlug) return;
     if (activeTab !== 'images' && activeTab !== 'pdfs' && activeTab !== 'pointclouds') return;
@@ -437,6 +453,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
           const isPointcloudPending =
             thumbnail.type === 'pointcloud' &&
             (thumbnail.conversion_status === 'pending' || thumbnail.conversion_status === 'processing');
+          const isPointcloudFailed =
+            thumbnail.type === 'pointcloud' && thumbnail.conversion_status === 'failed';
 
           return (
             <div
@@ -499,6 +517,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
                 ) : null}
               </div>
               <p className="text-sm text-center text-gray-600 dark:text-gray-200 mt-2">{fileName}</p>
+              {isPointcloudFailed && canUpload && (
+                <div className="mt-2 flex flex-col items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    disabled={retryingId === thumbnail.id}
+                    onClick={() => void handleRetryConversion(thumbnail.id)}
+                    className="rounded-md bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {retryingId === thumbnail.id ? 'Retrying…' : 'Retry conversion'}
+                  </button>
+                  {retryErrors[thumbnail.id] && (
+                    <p className="text-xs text-red-500 text-center">{retryErrors[thumbnail.id]}</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
