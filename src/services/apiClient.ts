@@ -365,8 +365,6 @@ function uploadViaXhr(params: {
       }
     };
     xhr.onerror = () => reject(new Error('Direct MinIO upload failed (network error)'));
-    xhr.ontimeout = () => reject(new Error('Direct MinIO upload failed (timeout)'));
-    xhr.timeout = 120000;
     params.signal?.addEventListener('abort', () => {
       xhr.abort();
       reject(new DOMException('Upload cancelled', 'AbortError'));
