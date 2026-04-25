@@ -3,7 +3,7 @@ import CheckboxDropdown from '../../components/CheckboxDropdown';
 import { EXPLORER_DATE_SCOPE_A6, useSelectedDate } from '../../components/selectedDate ';
 import Thumbnail from '../../components/Thumbnail';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ApiMediaFile,
   ApiRoom,
@@ -296,11 +296,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
     }
   };
 
+  const location = useLocation();
+  const previousPathnameRef = useRef(location.pathname);
+  const revertingRef = useRef(false);
+  const pendingNavLocationRef = useRef<{ pathname: string; search: string; state: unknown } | null>(null);
+
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
-  const [leaveViaHistory, setLeaveViaHistory] = useState(false);
-  const popstateHandlerRef = useRef<(() => void) | null>(null);
 
   const handleCancelUpload = () => {
     uploadAbortRef.current?.abort();
@@ -328,62 +330,39 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
 
   const handleConfirmLeave = () => {
     uploadAbortRef.current?.abort();
-    // Remove popstate listener before navigating so it doesn't re-trigger
-    if (popstateHandlerRef.current) {
-      window.removeEventListener('popstate', popstateHandlerRef.current);
-      popstateHandlerRef.current = null;
-    }
     setLeaveConfirmOpen(false);
-    if (leaveViaHistory) {
-      setLeaveViaHistory(false);
-      // Undo the two guard pushStates we added (initial + re-push in handler), then step back
-      window.history.go(-3);
-    } else if (pendingNavHref) {
-      navigate(pendingNavHref);
-      setPendingNavHref(null);
+    const dest = pendingNavLocationRef.current;
+    pendingNavLocationRef.current = null;
+    if (dest) {
+      navigate(dest.pathname + dest.search, { state: dest.state });
     }
   };
 
   const handleCancelLeave = () => {
+    pendingNavLocationRef.current = null;
     setLeaveConfirmOpen(false);
-    setPendingNavHref(null);
-    setLeaveViaHistory(false);
   };
 
-  // Intercept in-app link clicks when file selected or uploading
+  // Intercept all React Router navigation (links, buttons, back/forward) while file selected or uploading.
+  // When navigation is detected, immediately revert it and show the leave modal.
   useEffect(() => {
-    if (!file && !uploading) return;
-    const handler = (e: MouseEvent) => {
-      const anchor = (e.target as Element).closest('a[href]');
-      if (!anchor) return;
-      const href = anchor.getAttribute('href');
-      if (!href || href.startsWith('#')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setPendingNavHref(href);
-      setLeaveConfirmOpen(true);
-    };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
-  }, [file, uploading]);
+    if (location.pathname === previousPathnameRef.current) return;
 
-  // Intercept browser back/forward when file selected or uploading
-  useEffect(() => {
-    if (!file && !uploading) return;
-    // Push a guard entry so we can detect and cancel back/forward navigation
-    window.history.pushState(null, '');
-    const handler = () => {
-      window.history.pushState(null, '');
-      setLeaveViaHistory(true);
+    if (revertingRef.current) {
+      revertingRef.current = false;
+      previousPathnameRef.current = location.pathname;
+      return;
+    }
+
+    if (file !== null || uploading) {
+      revertingRef.current = true;
+      pendingNavLocationRef.current = { pathname: location.pathname, search: location.search, state: location.state };
+      navigate(-1);
       setLeaveConfirmOpen(true);
-    };
-    popstateHandlerRef.current = handler;
-    window.addEventListener('popstate', handler);
-    return () => {
-      window.removeEventListener('popstate', handler);
-      popstateHandlerRef.current = null;
-    };
-  }, [file, uploading]);
+    } else {
+      previousPathnameRef.current = location.pathname;
+    }
+  }, [location]);
 
   // Warn before tab close / reload / external navigation when file selected or uploading
   useEffect(() => {
