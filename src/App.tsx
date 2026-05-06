@@ -48,6 +48,7 @@ function App() {
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/unauthorized';
   const isProjectHome = /^\/projects\/[^/]+$/.test(pathname);
+  const isProjectsPage = pathname === '/projects';
 
   return (
     <AuthProvider>
@@ -65,12 +66,10 @@ function App() {
           <>
             <Routes>
               <Route path="/" element={<RootPage />} />
-              <Route
-                path="/projects/:slug"
-                element={<ProtectedRoute><ProjectHomePage /></ProtectedRoute>}
-              />
+              <Route path="/projects" element={<ProtectedRoute><ProjectsDashboard /></ProtectedRoute>} />
+              <Route path="/projects/:slug" element={<ProtectedRoute><ProjectHomePage /></ProtectedRoute>} />
             </Routes>
-            {pathname !== '/' && !isProjectHome && (
+            {pathname !== '/' && !isProjectHome && !isProjectsPage && (
               <DefaultLayout>
                 <Routes>
                   <Route
@@ -123,7 +122,6 @@ function App() {
                   />
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/pdfViewer" element={<ProtectedRoute><PdfViewerPage /></ProtectedRoute>} />
-                  <Route path="/projects" element={<ProtectedRoute><ProjectsDashboard /></ProtectedRoute>} />
                   <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
                   <Route path="/admin/projects" element={<ProtectedRoute requireAdmin><AdminProjectsPage /></ProtectedRoute>} />

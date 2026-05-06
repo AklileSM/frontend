@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProject } from '../../context/ProjectContext';
 import { createProject, listProjects, type ApiProject, type ApiProjectCreateRequest } from '../../services/apiClient';
 import PageTitle from '../../components/PageTitle';
+import HeaderProfileMenu from '../../components/Header/HeaderProfileMenu';
 
 const STATUS_LABEL: Record<string, string> = {
   active: 'Active',
@@ -52,8 +53,16 @@ const ProjectsDashboard: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="px-6 py-8">
+    <div className="min-h-screen bg-white dark:bg-boxdark-2">
       <PageTitle title="Projects" />
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-stroke bg-white px-6 py-4 dark:border-strokedark dark:bg-boxdark">
+        <div className="flex items-center gap-3">
+          <img className="h-8 dark:hidden" src="/Logo/LogoforWhite.png" alt="Logo" />
+          <img className="hidden h-8 dark:block" src="/Logo/LogoforDark.png" alt="Logo" />
+        </div>
+        <HeaderProfileMenu />
+      </header>
+    <div className="px-6 py-8">
 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -140,6 +149,7 @@ const ProjectsDashboard: React.FC = () => {
           onClose={() => setShowCreate(false)}
         />
       )}
+    </div>
     </div>
   );
 };

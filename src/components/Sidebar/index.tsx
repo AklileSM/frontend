@@ -269,23 +269,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </SidebarLinkGroup>
             </ul>
 
-            <ul className="mb-6 flex flex-col gap-1.5 border-t border-gray-700 pt-4">
-              <li>
-                <NavLink
-                  to="/projects"
-                  className={({ isActive }) =>
-                    `group flex items-center gap-2.5 rounded-sm px-4 py-2 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 ${
-                      isActive ? 'bg-graydark dark:bg-meta-4' : ''
-                    }`
-                  }
-                >
-                  <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" fill="" />
-                  </svg>
-                  <span>All Projects</span>
-                </NavLink>
-              </li>
-              {user?.is_admin && (
+            {user?.is_admin && (
+              <ul className="mb-6 flex flex-col gap-1.5 border-t border-gray-700 pt-4">
                 <li>
                   <NavLink
                     to="/admin"
@@ -301,8 +286,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                     <span>Admin Panel</span>
                   </NavLink>
                 </li>
-              )}
-            </ul>
+              </ul>
+            )}
           </div>
 
           <div className="mb-4 w-full shrink-0 px-3.5">
