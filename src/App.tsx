@@ -16,9 +16,11 @@ import InteractiveViewerRoom from './components/interactiveViewerRoom';
 import PotreeViewer from './components/PotreeViewer';
 import StaticPointCloudViewer from './components/StaticPointCloudViewer';
 import HomePage from './pages/HomePage';
+import PublicLandingPage from './pages/PublicLandingPage';
 
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Unauthorized from './pages/Auth/Unauthorized';
@@ -55,7 +57,7 @@ function App() {
         {!isAuthPage && (
           <>
             <Routes>
-              <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+              <Route path="/" element={<RootPage />} />
             </Routes>
             {pathname !== '/' && (
               <DefaultLayout>
@@ -119,6 +121,13 @@ function App() {
       </SelectedDateProvider>
     </AuthProvider>
   );
+}
+
+function RootPage() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) return <PublicLandingPage />;
+  return <HomePage />;
 }
 
 export default App;
