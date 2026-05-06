@@ -8,7 +8,6 @@ import {
   type NavProject,
 } from '../../config/projectNav';
 import { listProjects } from '../../services/apiClient';
-import { readStoredA6Room } from '../../utils/a6RoomPreferences';
 
 const Header = () => {
   const { pathname } = useLocation();
@@ -47,7 +46,7 @@ const Header = () => {
   }
 
   const navigateHome = () => {
-    navigate('/A6_stern')
+    navigate('/projects')
     setIsBackModalOpen(false)
   }
   return (
@@ -103,11 +102,7 @@ const Header = () => {
                       aria-selected={isActive}
                       onClick={() => {
                         setProjectDropOpen(false);
-                        if (p.path === '/A6_Stern') {
-                          navigate('/RoomExplorer', { state: { room: readStoredA6Room() } });
-                        } else {
-                          navigate(p.path);
-                        }
+                        navigate(p.path);
                       }}
                       className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors text-left
                         ${isActive

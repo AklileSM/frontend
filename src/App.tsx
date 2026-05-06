@@ -15,7 +15,6 @@ import StaticViewerRoom from './components/staticViewerRoom';
 import InteractiveViewerRoom from './components/interactiveViewerRoom';
 
 import StaticPointCloudViewer from './components/StaticPointCloudViewer';
-import HomePage from './pages/HomePage';
 import PublicLandingPage from './pages/PublicLandingPage';
 
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -27,9 +26,11 @@ import Unauthorized from './pages/Auth/Unauthorized';
 import ProfilePage from './pages/ProfilePage';
 import PdfViewerPage from './pages/PdfViewerPage';
 import ProjectsDashboard from './pages/Dashboard/ProjectsDashboard';
+import ProjectHomePage from './pages/ProjectHomePage';
 import AdminPage from './pages/Admin/AdminPage';
 import AdminUsersPage from './pages/Admin/AdminUsersPage';
 import AdminProjectsPage from './pages/Admin/AdminProjectsPage';
+import { ProjectProvider } from './context/ProjectContext';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,9 +47,11 @@ function App() {
   if (loading) return <Loader />;
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/unauthorized';
+  const isProjectHome = /^\/projects\/[^/]+$/.test(pathname);
 
   return (
     <AuthProvider>
+      <ProjectProvider>
       <SelectedDateProvider>
         {/* Public auth routes */}
         <Routes>
@@ -62,8 +65,12 @@ function App() {
           <>
             <Routes>
               <Route path="/" element={<RootPage />} />
+              <Route
+                path="/projects/:slug"
+                element={<ProtectedRoute><ProjectHomePage /></ProtectedRoute>}
+              />
             </Routes>
-            {pathname !== '/' && (
+            {pathname !== '/' && !isProjectHome && (
               <DefaultLayout>
                 <Routes>
                   <Route
@@ -126,6 +133,7 @@ function App() {
           </>
         )}
       </SelectedDateProvider>
+      </ProjectProvider>
     </AuthProvider>
   );
 }

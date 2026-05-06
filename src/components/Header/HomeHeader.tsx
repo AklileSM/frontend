@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import HeaderProfileMenu from './HeaderProfileMenu';
 import {
   FALLBACK_PROJECT_NAV,
@@ -10,10 +10,10 @@ import { listProjects } from '../../services/apiClient';
 
 interface HomeHeaderProps {
   selectedSlug: string;
-  onProjectChange: (slug: string) => void;
 }
 
-const HomeHeader = ({ selectedSlug, onProjectChange }: HomeHeaderProps) => {
+const HomeHeader = ({ selectedSlug }: HomeHeaderProps) => {
+  const navigate = useNavigate();
   const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
   const [open, setOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -90,7 +90,7 @@ const HomeHeader = ({ selectedSlug, onProjectChange }: HomeHeaderProps) => {
                       aria-selected={isActive}
                       onClick={() => {
                         setOpen(false);
-                        onProjectChange(p.slug);
+                        navigate(`/projects/${p.slug}`);
                       }}
                       className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors text-left
                         ${isActive

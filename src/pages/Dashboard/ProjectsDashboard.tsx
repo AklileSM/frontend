@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useProject } from '../../context/ProjectContext';
 import { createProject, listProjects, type ApiProject, type ApiProjectCreateRequest } from '../../services/apiClient';
 import PageTitle from '../../components/PageTitle';
 
@@ -26,10 +28,14 @@ const autoSlug = (name: string) =>
 
 const ProjectsDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { setActiveProjectSlug } = useProject();
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+
+  // Clear active project when viewing the dashboard
+  useEffect(() => { setActiveProjectSlug(null); }, [setActiveProjectSlug]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,12 +104,13 @@ const ProjectsDashboard: React.FC = () => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
-            <div
+            <Link
               key={p.id}
-              className="flex flex-col gap-3 rounded-lg border border-stroke bg-white p-5 shadow-sm dark:border-strokedark dark:bg-boxdark"
+              to={`/projects/${p.slug}`}
+              className="flex flex-col gap-3 rounded-lg border border-stroke bg-white p-5 shadow-sm transition-colors hover:border-primary dark:border-strokedark dark:bg-boxdark dark:hover:border-primary"
             >
               <div className="flex items-start justify-between gap-2">
-                <h2 className="font-semibold text-black dark:text-white">{p.name}</h2>
+                <h2 className="font-semibold text-black transition-colors group-hover:text-primary dark:text-white">{p.name}</h2>
                 <span
                   className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${
                     STATUS_COLOR[p.status] ?? STATUS_COLOR.archived
@@ -119,7 +126,7 @@ const ProjectsDashboard: React.FC = () => {
                 <p className="text-xs text-gray-400 dark:text-gray-500">📍 {p.location}</p>
               )}
               <p className="mt-auto text-xs font-mono text-gray-400 dark:text-gray-500">/{p.slug}</p>
-            </div>
+            </Link>
           ))}
         </div>
       )}

@@ -6,26 +6,27 @@ export type NavProject = {
   path: string;
 };
 
-/** Routes and labels for sidebar + header; names can be overridden from GET /projects. */
 export const FALLBACK_PROJECT_NAV: NavProject[] = [
-  { slug: 'a6-stern', name: 'A6 Stern', path: '/A6_Stern' },
-  { slug: 'projectx', name: 'Project X', path: '/projectx' },
-  { slug: 'projecty', name: 'Project Y', path: '/projecty' },
+  { slug: 'a6-stern', name: 'A6 Stern', path: '/projects/a6-stern' },
 ];
 
 export function mergeProjectNav(api: ApiProject[]): NavProject[] {
-  const nameBySlug = new Map(api.map((p) => [p.slug, p.name]));
-  return FALLBACK_PROJECT_NAV.map((p) => ({
-    ...p,
-    name: nameBySlug.get(p.slug) ?? p.name,
+  if (api.length === 0) return FALLBACK_PROJECT_NAV;
+  return api.map((p) => ({
+    slug: p.slug,
+    name: p.name,
+    path: `/projects/${p.slug}`,
   }));
 }
 
-/** Which project route matches this pathname (for header dropdown value). */
-export function projectPathForPathname(pathname: string): string {
-  if (pathname === '/projectx' || pathname.startsWith('/projectx/')) return '/projectx';
-  if (pathname === '/projecty' || pathname.startsWith('/projecty/')) return '/projecty';
-  if (pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/')) return '/A6_Stern';
-  if (pathname === '/RoomExplorer' || pathname.startsWith('/RoomExplorer/')) return '/A6_Stern';
-  return '/A6_Stern';
+/** Returns the `/projects/:slug` path for the current pathname, or null if not in a project context. */
+export function projectPathForPathname(pathname: string): string | null {
+  const m = pathname.match(/^\/projects\/([^/]+)/);
+  if (m) return `/projects/${m[1]}`;
+  if (pathname === '/A6_Stern' || pathname.startsWith('/A6_Stern/') ||
+      pathname === '/RoomExplorer' || pathname.startsWith('/RoomExplorer/'))
+    return '/projects/a6-stern';
+  if (pathname === '/projectx' || pathname.startsWith('/projectx/')) return '/projects/projectx';
+  if (pathname === '/projecty' || pathname.startsWith('/projecty/')) return '/projects/projecty';
+  return null;
 }

@@ -80,9 +80,8 @@ const FloorplanPlaceholder = () => (
 // Main page
 // ---------------------------------------------------------------------------
 
-const HomePage: React.FC = () => {
-  const [selectedSlug, setSelectedSlug] = useState<string>('a6-stern');
-  const isA6 = selectedSlug === 'a6-stern';
+const HomePage: React.FC<{ slug: string }> = ({ slug }) => {
+  const isA6 = slug === 'a6-stern';
 
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarPosition, setCalendarPosition] = useState({ top: 0, left: 0 });
@@ -135,7 +134,7 @@ const HomePage: React.FC = () => {
 
   return (
     <>
-      <HomeHeader selectedSlug={selectedSlug} onProjectChange={setSelectedSlug} />
+      <HomeHeader selectedSlug={slug} />
 
       <div className="relative flex flex-col lg:flex-row items-start justify-between min-h-screen bg-slate-100 dark:bg-black text-white p-8 overflow-hidden">
 

@@ -10,9 +10,8 @@ import SidebarLinkGroup from './SidebarLinkGroup';
 import Calendar from '../../pages/Calendar';
 import FileTree from '../FileTree';
 import { useAuth } from '../../context/AuthContext';
+import { useProject } from '../../context/ProjectContext';
 
-/** Sidebar order: X, Y, then A6 (file tree). */
-const SIDEBAR_PROJECT_SLUGS = ['projectx', 'projecty', 'a6-stern'] as const;
 
 function ProjectFolderIcon() {
   const cn = 'h-4 w-4 shrink-0';
@@ -45,6 +44,7 @@ const CONTENT_TRANSITION =
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { activeProjectSlug } = useProject();
   const [heavyContentMounted, setHeavyContentMounted] = useState(false);
   const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
   const [openBySlug, setOpenBySlug] = useState<Record<string, boolean>>({});
@@ -220,9 +220,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                     {open && (
                       <div className="transform overflow-hidden">
                         <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
-                          {SIDEBAR_PROJECT_SLUGS.map((slug) => {
-                            const meta = navProjects.find((p) => p.slug === slug);
-                            if (!meta) return null;
+                          {navProjects
+                            .filter((p) => !activeProjectSlug || p.slug === activeProjectSlug)
+                            .map((meta) => {
+                            const slug = meta.slug;
                             const isActive =
                               pathname === meta.path ||
                               pathname.startsWith(`${meta.path}/`) ||
