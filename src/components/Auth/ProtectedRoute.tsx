@@ -1,14 +1,11 @@
-﻿import React from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import type { Role } from '../../context/AuthContext';
 
-const hasRequiredRole = (userRole: Role, required?: Role[] | undefined) => {
-  if (!required || required.length === 0) return true;
-  return required.includes(userRole);
-};
-
-const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: Role[] }> = ({ children, roles }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactElement; requireAdmin?: boolean }> = ({
+  children,
+  requireAdmin,
+}) => {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
@@ -16,7 +13,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: Role[] }>
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (user && !hasRequiredRole(user.role, roles)) {
+  if (requireAdmin && !user?.is_admin) {
     return <Navigate to="/unauthorized" replace />;
   }
 

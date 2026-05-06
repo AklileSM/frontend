@@ -59,7 +59,7 @@ const HeaderProfileMenu = () => {
           <div className="border-b border-stroke px-4 py-3.5 dark:border-strokedark">
             <p className="text-xs text-gray-400 dark:text-gray-500">Signed in as</p>
             <p className="mt-0.5 truncate font-semibold text-black dark:text-white">{user.username}</p>
-            <p className="mt-1.5 text-xs font-medium capitalize text-primary">{user.role}</p>
+            <p className="mt-1.5 text-xs font-medium capitalize text-primary">{user.is_admin ? 'Admin' : 'Member'}</p>
           </div>
 
           {/* Dark mode toggle row */}

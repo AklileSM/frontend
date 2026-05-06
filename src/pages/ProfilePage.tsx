@@ -165,7 +165,7 @@ async function triggerFileDownload(url: string, filename: string): Promise<void>
 }
 
 function canDeleteFiles(authUser: AuthUser | null): boolean {
-  return Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
+  return Boolean(authUser?.is_admin);
 }
 
 const PROFILE_MENU_PANEL_CLASS =
@@ -589,7 +589,7 @@ function UploadActionsMenu({
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const showUploads = useMemo(() => user?.role === 'admin' || user?.role === 'manager', [user?.role]);
+  const showUploads = useMemo(() => user?.is_admin ?? false, [user?.is_admin]);
 
   const [reports, setReports] = useState<ApiReport[] | null>(null);
   const [uploads, setUploads] = useState<ApiMyUpload[] | null>(null);
@@ -744,7 +744,7 @@ const ProfilePage: React.FC = () => {
               </p>
             ) : null}
             <p className="mt-1 capitalize">
-              <span className="font-medium text-gray-800 dark:text-gray-200">Role:</span> {user.role}
+              <span className="font-medium text-gray-800 dark:text-gray-200">Role:</span> {user.is_admin ? 'Admin' : 'Member'}
             </p>
           </div>
         ) : null}

@@ -83,6 +83,12 @@ export interface ApiProject {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  location: string | null;
+  status: string;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 function addRoomGroupsToDateCounts(
@@ -122,6 +128,40 @@ async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listProjects(): Promise<ApiProject[]> {
   return getJson<ApiProject[]>('/projects/');
+}
+
+export function createProject(body: ApiProjectCreateRequest): Promise<ApiProject> {
+  return getJson<ApiProject>('/projects/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function listAdminUsers(): Promise<ApiAdminUser[]> {
+  return getJson<ApiAdminUser[]>('/admin/users');
+}
+
+export function updateAdminUser(
+  userId: string,
+  patch: { is_admin?: boolean; is_active?: boolean; email?: string | null },
+): Promise<ApiAdminUser> {
+  return getJson<ApiAdminUser>(`/admin/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function listAdminProjects(): Promise<ApiProject[]> {
+  return getJson<ApiProject[]>('/admin/projects');
+}
+
+export async function deleteAdminProject(projectId: string): Promise<void> {
+  const response = await apiFetch(`/admin/projects/${projectId}`, { method: 'DELETE' }, true);
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
 }
 
 export function getExplorerByDate(date: string): Promise<ExplorerByDateResponse> {
@@ -164,9 +204,25 @@ export type ApiTokenResponse = {
     id: string;
     username: string;
     email: string | null;
-    role: string;
+    is_admin: boolean;
   };
 };
+
+export interface ApiAdminUser {
+  id: string;
+  username: string;
+  email: string | null;
+  is_admin: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ApiProjectCreateRequest {
+  name: string;
+  slug: string;
+  description?: string | null;
+  location?: string | null;
+}
 
 export async function apiLogin(username: string, password: string): Promise<ApiTokenResponse> {
   const response = await apiFetch(

@@ -9,6 +9,7 @@ import { listProjects } from '../../services/apiClient';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import Calendar from '../../pages/Calendar';
 import FileTree from '../FileTree';
+import { useAuth } from '../../context/AuthContext';
 
 /** Sidebar order: X, Y, then A6 (file tree). */
 const SIDEBAR_PROJECT_SLUGS = ['projectx', 'projecty', 'a6-stern'] as const;
@@ -43,6 +44,7 @@ const CONTENT_TRANSITION =
 
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [heavyContentMounted, setHeavyContentMounted] = useState(false);
   const [navProjects, setNavProjects] = useState<NavProject[]>(FALLBACK_PROJECT_NAV);
   const [openBySlug, setOpenBySlug] = useState<Record<string, boolean>>({});
@@ -264,6 +266,41 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   </React.Fragment>
                 )}
               </SidebarLinkGroup>
+            </ul>
+
+            <ul className="mb-6 flex flex-col gap-1.5 border-t border-gray-700 pt-4">
+              <li>
+                <NavLink
+                  to="/projects"
+                  className={({ isActive }) =>
+                    `group flex items-center gap-2.5 rounded-sm px-4 py-2 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 ${
+                      isActive ? 'bg-graydark dark:bg-meta-4' : ''
+                    }`
+                  }
+                >
+                  <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" fill="" />
+                  </svg>
+                  <span>All Projects</span>
+                </NavLink>
+              </li>
+              {user?.is_admin && (
+                <li>
+                  <NavLink
+                    to="/admin"
+                    className={({ isActive }) =>
+                      `group flex items-center gap-2.5 rounded-sm px-4 py-2 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 ${
+                        isActive ? 'bg-graydark dark:bg-meta-4' : ''
+                      }`
+                    }
+                  >
+                    <svg className="fill-current" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2a5 5 0 100 10A5 5 0 0012 2zm0 12c-5.33 0-8 2.67-8 4v2h16v-2c0-1.33-2.67-4-8-4z" fill="" />
+                    </svg>
+                    <span>Admin Panel</span>
+                  </NavLink>
+                </li>
+              )}
             </ul>
           </div>
 

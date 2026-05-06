@@ -13,10 +13,9 @@ import {
   readSession,
   storeSession,
   type AuthUser,
-  type Role,
 } from '../auth/authSession';
 
-export type { AuthUser, Role };
+export type { AuthUser };
 
 type AuthContextValue = {
   user: AuthUser | null;

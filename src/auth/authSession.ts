@@ -1,10 +1,8 @@
-export type Role = 'admin' | 'manager' | 'viewer';
-
 export type AuthUser = {
   id: string;
   username: string;
   email: string | null;
-  role: Role;
+  is_admin: boolean;
 };
 
 export type AuthSession = {
@@ -17,22 +15,23 @@ const STORAGE_KEY = 'a6_auth_v2';
 /** In-memory token when "Remember me" is off (lost on full page reload). */
 let ephemeralAccessToken: string | null = null;
 
-function isRole(s: string): s is Role {
-  return s === 'admin' || s === 'manager' || s === 'viewer';
-}
-
 export function normalizeUser(raw: {
   id: string;
   username: string;
   email?: string | null;
-  role: string;
+  is_admin?: boolean;
+  /** Legacy field from old sessions stored in localStorage. */
+  role?: string;
 }): AuthUser {
-  const role = isRole(raw.role) ? raw.role : 'viewer';
+  const is_admin =
+    typeof raw.is_admin === 'boolean'
+      ? raw.is_admin
+      : raw.role === 'admin';
   return {
     id: raw.id,
     username: raw.username,
     email: raw.email ?? null,
-    role,
+    is_admin,
   };
 }
 
@@ -44,7 +43,7 @@ export function readSession(): AuthSession | null {
     if (!parsed?.accessToken || !parsed?.user?.id) return null;
     return {
       accessToken: parsed.accessToken,
-      user: normalizeUser(parsed.user as AuthUser & { role: string }),
+      user: normalizeUser(parsed.user as AuthUser & { role?: string }),
     };
   } catch {
     return null;

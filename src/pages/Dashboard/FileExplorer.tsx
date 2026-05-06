@@ -30,7 +30,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   const dateScope = filterProjectSlug ?? EXPLORER_DATE_SCOPE_A6;
   const selectedDate = getDateForScope(dateScope);
   const { user } = useAuth();
-  const canUpload = user?.role === 'admin';
+  const canUpload = user?.is_admin ?? false;
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'pointclouds' | 'pdfs'>('images');
   const [collapsedRooms, setCollapsedRooms] = useState<{ [room: string]: boolean }>({});
   const [hiddenRooms, setHiddenRooms] = useState<Set<string>>(new Set());
@@ -232,7 +232,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
   }, [activeTab, thumbnailsForSelectedDate]);
 
   const canDeleteFiles = (authUser: AuthUser | null): boolean =>
-    Boolean(authUser && (authUser.role === 'admin' || authUser.role === 'manager'));
+    Boolean(authUser?.is_admin);
 
   const openDeleteModal = (f: ApiMediaFile) => {
     if (!canDeleteFiles(user) || deletingId) return;

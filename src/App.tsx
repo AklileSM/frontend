@@ -26,6 +26,10 @@ import Register from './pages/Auth/Register';
 import Unauthorized from './pages/Auth/Unauthorized';
 import ProfilePage from './pages/ProfilePage';
 import PdfViewerPage from './pages/PdfViewerPage';
+import ProjectsDashboard from './pages/Dashboard/ProjectsDashboard';
+import AdminPage from './pages/Admin/AdminPage';
+import AdminUsersPage from './pages/Admin/AdminUsersPage';
+import AdminProjectsPage from './pages/Admin/AdminProjectsPage';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -112,6 +116,10 @@ function App() {
                   />
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/pdfViewer" element={<ProtectedRoute><PdfViewerPage /></ProtectedRoute>} />
+                  <Route path="/projects" element={<ProtectedRoute><ProjectsDashboard /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
+                  <Route path="/admin/projects" element={<ProtectedRoute requireAdmin><AdminProjectsPage /></ProtectedRoute>} />
                 </Routes>
               </DefaultLayout>
             )}
