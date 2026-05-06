@@ -134,7 +134,7 @@ function RootPage() {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) return <PublicLandingPage />;
-  return <HomePage />;
+  return <Navigate to="/projects" replace />;
 }
 
 export default App;
