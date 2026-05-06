@@ -13,7 +13,7 @@ import Aframe_IntViewer from './components/Aframe_IntViewer';
 import RoomFileViewer from './pages/RoomFileViewer';
 import StaticViewerRoom from './components/staticViewerRoom';
 import InteractiveViewerRoom from './components/interactiveViewerRoom';
-import PotreeViewer from './components/PotreeViewer';
+
 import StaticPointCloudViewer from './components/StaticPointCloudViewer';
 import HomePage from './pages/HomePage';
 import PublicLandingPage from './pages/PublicLandingPage';
@@ -110,7 +110,6 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="/Potree" element={<ProtectedRoute><PotreeViewer /></ProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/pdfViewer" element={<ProtectedRoute><PdfViewerPage /></ProtectedRoute>} />
                 </Routes>
