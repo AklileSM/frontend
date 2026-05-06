@@ -4,21 +4,25 @@ import DarkModeSwitcher from '../components/Header/DarkModeSwitcher';
 
 const highlights = [
   {
+    eyebrow: 'Data model',
     title: 'Room and date indexed archive',
     description:
       'Every capture is organized by room and date so teams can quickly answer what happened and when.',
   },
   {
+    eyebrow: 'Viewers',
     title: 'Built-in viewers for field formats',
     description:
       'Open image, panorama, video, point cloud, and PDF files in dedicated viewers without leaving the platform.',
   },
   {
+    eyebrow: 'Reports',
     title: 'Report-ready documentation',
     description:
       'Convert observations into consistent report outputs with media context preserved from site captures.',
   },
   {
+    eyebrow: 'Access',
     title: 'Role-based collaboration',
     description:
       'Project teams can review evidence across disciplines with controlled access to critical project records.',
@@ -34,11 +38,11 @@ const workflow = [
 ];
 
 const viewers = [
-  { name: 'Image viewer', types: 'JPG, PNG', info: 'Zoom, inspect, annotate.' },
-  { name: '360 viewer', types: 'Panoramic image', info: 'Navigate immersive room captures.' },
-  { name: 'Video viewer', types: 'MP4, MOV, WEBM', info: 'Review timeline evidence frame by frame.' },
-  { name: 'Point cloud viewer', types: 'LAS, LAZ', info: 'Inspect converted cloud geometry in-browser.' },
-  { name: 'PDF viewer', types: 'PDF', info: 'Open documentation artifacts directly.' },
+  { label: '01', name: 'Image viewer', types: 'JPG, PNG', info: 'Zoom, inspect, annotate.' },
+  { label: '02', name: '360 viewer', types: 'Panoramic image', info: 'Navigate immersive room captures.' },
+  { label: '03', name: 'Video viewer', types: 'MP4, MOV, WEBM', info: 'Review timeline evidence frame by frame.' },
+  { label: '04', name: 'Point cloud viewer', types: 'LAS, LAZ', info: 'Inspect converted cloud geometry in-browser.' },
+  { label: '05', name: 'PDF viewer', types: 'PDF', info: 'Open documentation artifacts directly.' },
 ];
 
 const trustPoints = [
@@ -91,7 +95,7 @@ const PublicLandingPage: React.FC = () => {
       </header>
 
       <main>
-        <section className="relative overflow-hidden">
+        <section className="relative overflow-hidden border-b border-stroke dark:border-strokedark">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -left-20 top-8 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
             <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-meta-3/10 blur-3xl dark:bg-primary/10" />
@@ -161,6 +165,9 @@ const PublicLandingPage: React.FC = () => {
                   </div>
                 ))}
               </div>
+              <div className="mt-5 overflow-hidden rounded-lg border border-stroke dark:border-strokedark">
+                <PlatformDiagram />
+              </div>
               <p className="mt-5 text-xs leading-5 text-body dark:text-bodydark">
                 Designed for daily capture operations where every room update needs auditable media history.
               </p>
@@ -168,7 +175,7 @@ const PublicLandingPage: React.FC = () => {
           </div>
         </section>
 
-        <section id="features" className="border-y border-stroke bg-white/70 py-16 dark:border-strokedark dark:bg-boxdark/30">
+        <section id="features" className="border-b border-stroke bg-white/70 py-20 dark:border-strokedark dark:bg-boxdark/30">
           <div className="mx-auto w-full max-w-7xl px-6">
             <div className="mx-auto max-w-3xl text-center">
               <h2 className="text-3xl font-semibold text-black dark:text-white">Built for field documentation teams</h2>
@@ -180,18 +187,20 @@ const PublicLandingPage: React.FC = () => {
               {highlights.map((item) => (
                 <article
                   key={item.title}
-                  className="rounded-xl border border-stroke bg-white p-5 shadow-card transition hover:-translate-y-1 dark:border-strokedark dark:bg-boxdark"
+                  className="group rounded-xl border border-stroke bg-white p-5 shadow-card transition hover:-translate-y-1 dark:border-strokedark dark:bg-boxdark"
                 >
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{item.eyebrow}</p>
                   <h3 className="text-base font-semibold text-black dark:text-white">{item.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-body dark:text-bodydark">{item.description}</p>
+                  <div className="mt-4 h-1 w-16 rounded-full bg-primary/20 transition-all group-hover:w-24 group-hover:bg-primary/50" />
                 </article>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="workflow" className="mx-auto w-full max-w-7xl px-6 py-16">
-          <div className="grid gap-10 lg:grid-cols-2">
+        <section id="workflow" className="mx-auto w-full max-w-7xl px-6 py-20">
+          <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div className="rounded-xl border border-stroke bg-white p-6 shadow-card dark:border-strokedark dark:bg-boxdark">
               <h3 className="text-xl font-semibold text-black dark:text-white">How teams use it daily</h3>
               <div className="mt-6 space-y-4">
@@ -232,11 +241,20 @@ const PublicLandingPage: React.FC = () => {
                   Need to prove what changed between two site dates? Keep all media and reports linked by room and timeline.
                 </p>
               </div>
+              <div className="mt-6 rounded-lg border border-stroke p-4 dark:border-strokedark">
+                <p className="text-xs font-semibold uppercase tracking-wider text-body dark:text-bodydark">Core entities</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded bg-gray-2 px-2 py-1 text-xs dark:bg-boxdark-2">project_slug</span>
+                  <span className="rounded bg-gray-2 px-2 py-1 text-xs dark:bg-boxdark-2">room_slug</span>
+                  <span className="rounded bg-gray-2 px-2 py-1 text-xs dark:bg-boxdark-2">capture_date</span>
+                  <span className="rounded bg-gray-2 px-2 py-1 text-xs dark:bg-boxdark-2">media_type</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="viewers" className="border-y border-stroke bg-white/70 py-16 dark:border-strokedark dark:bg-boxdark/30">
+        <section id="viewers" className="border-y border-stroke bg-white/70 py-20 dark:border-strokedark dark:bg-boxdark/30">
           <div className="mx-auto w-full max-w-7xl px-6">
             <div className="mx-auto max-w-3xl text-center">
               <h2 className="text-3xl font-semibold text-black dark:text-white">Five viewers, one documentation flow</h2>
@@ -248,9 +266,10 @@ const PublicLandingPage: React.FC = () => {
               {viewers.map((viewer) => (
                 <article
                   key={viewer.name}
-                  className="rounded-xl border border-stroke bg-white p-5 shadow-card dark:border-strokedark dark:bg-boxdark"
+                  className="rounded-xl border border-stroke bg-white p-5 shadow-card transition hover:-translate-y-1 dark:border-strokedark dark:bg-boxdark"
                 >
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">{viewer.name}</h3>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{viewer.label}</p>
+                  <h3 className="mt-2 text-sm font-semibold uppercase tracking-wide text-primary">{viewer.name}</h3>
                   <p className="mt-3 text-xs font-medium text-black dark:text-white">{viewer.types}</p>
                   <p className="mt-2 text-sm leading-6 text-body dark:text-bodydark">{viewer.info}</p>
                 </article>
@@ -306,5 +325,43 @@ const PublicLandingPage: React.FC = () => {
     </div>
   );
 };
+
+function PlatformDiagram() {
+  return (
+    <svg viewBox="0 0 560 220" className="h-auto w-full bg-white dark:bg-boxdark" role="img" aria-label="Platform flow">
+      <defs>
+        <linearGradient id="flow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#3C50E0" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#3C50E0" stopOpacity="0.6" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="558" height="218" rx="8" fill="transparent" stroke="rgba(60,80,224,0.2)" />
+      <Node x={28} y={34} title="Upload" subtitle="image, video, pcd, pdf" />
+      <Node x={212} y={34} title="Index" subtitle="room + date + type" />
+      <Node x={396} y={34} title="Open viewer" subtitle="by media format" />
+      <Node x={120} y={130} title="Annotate" subtitle="issue + notes + ai hints" />
+      <Node x={304} y={130} title="Publish" subtitle="draft or final report" />
+      <line x1="164" y1="68" x2="212" y2="68" stroke="url(#flow)" strokeWidth="3" />
+      <line x1="348" y1="68" x2="396" y2="68" stroke="url(#flow)" strokeWidth="3" />
+      <line x1="444" y1="88" x2="352" y2="130" stroke="url(#flow)" strokeWidth="3" />
+      <line x1="260" y1="88" x2="190" y2="130" stroke="url(#flow)" strokeWidth="3" />
+      <line x1="260" y1="164" x2="304" y2="164" stroke="url(#flow)" strokeWidth="3" />
+    </svg>
+  );
+}
+
+function Node({ x, y, title, subtitle }: { x: number; y: number; title: string; subtitle: string }) {
+  return (
+    <g>
+      <rect x={x} y={y} width="136" height="54" rx="8" fill="rgba(60,80,224,0.08)" stroke="rgba(60,80,224,0.35)" />
+      <text x={x + 12} y={y + 21} fontSize="12" fontWeight="700" fill="#3C50E0">
+        {title}
+      </text>
+      <text x={x + 12} y={y + 37} fontSize="10" fill="#64748B">
+        {subtitle}
+      </text>
+    </g>
+  );
+}
 
 export default PublicLandingPage;
