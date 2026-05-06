@@ -38,6 +38,18 @@ const Login: React.FC = () => {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gray-2 dark:bg-boxdark-2 px-4 py-8">
+      <div className="absolute left-4 top-4 z-10 md:left-6 md:top-6">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-2 text-sm font-medium text-body shadow-sm transition hover:text-primary dark:border-strokedark dark:bg-boxdark dark:text-bodydark dark:hover:text-white"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Back to home
+        </Link>
+      </div>
+
       <div className="absolute right-4 top-4 z-10 md:right-6 md:top-6">
         <ul className="m-0 list-none p-0">
           <DarkModeSwitcher />
