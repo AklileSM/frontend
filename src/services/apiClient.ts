@@ -77,6 +77,8 @@ export interface ApiRoom {
   name: string;
   slug: string;
   project_id: string;
+  floor_plan_coordinates: { x: number; y: number; width: number; height: number } | null;
+  sort_order: number;
 }
 
 export interface ApiProject {
@@ -87,6 +89,7 @@ export interface ApiProject {
   location: string | null;
   status: string;
   owner_id: string | null;
+  floorplan_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -136,6 +139,122 @@ export function createProject(body: ApiProjectCreateRequest): Promise<ApiProject
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+export function getProjectBySlug(slug: string): Promise<ApiProject> {
+  return getJson<ApiProject>(`/projects/by-slug/${encodeURIComponent(slug)}`);
+}
+
+export function getProject(projectId: string): Promise<ApiProject> {
+  return getJson<ApiProject>(`/projects/${projectId}`);
+}
+
+export function updateProject(
+  projectId: string,
+  patch: { name?: string; description?: string | null; location?: string | null; status?: string },
+): Promise<ApiProject> {
+  return getJson<ApiProject>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function listProjectRooms(projectId: string): Promise<ApiRoom[]> {
+  return getJson<ApiRoom[]>(`/projects/${projectId}/rooms`);
+}
+
+export function createRoom(
+  projectId: string,
+  data: { name: string; slug: string; sort_order?: number },
+): Promise<ApiRoom> {
+  return getJson<ApiRoom>(`/projects/${projectId}/rooms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateRoom(
+  projectId: string,
+  roomId: string,
+  patch: {
+    name?: string;
+    slug?: string;
+    floor_plan_coordinates?: { x: number; y: number; width: number; height: number } | null;
+    sort_order?: number;
+  },
+): Promise<ApiRoom> {
+  return getJson<ApiRoom>(`/projects/${projectId}/rooms/${roomId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteRoom(projectId: string, roomId: string): Promise<void> {
+  const response = await apiFetch(`/projects/${projectId}/rooms/${roomId}`, { method: 'DELETE' }, true);
+  if (!response.ok) throw new Error(await parseApiError(response));
+}
+
+export async function uploadFloorplan(projectId: string, file: File): Promise<ApiProject> {
+  const token = getAccessToken();
+  if (!token) throw new Error('Sign in to upload a floorplan.');
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch(`${API_BASE}/projects/${projectId}/floorplan`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
+  return response.json() as Promise<ApiProject>;
+}
+
+export async function deleteFloorplan(projectId: string): Promise<ApiProject> {
+  const response = await apiFetch(`/projects/${projectId}/floorplan`, { method: 'DELETE' }, true);
+  if (!response.ok) throw new Error(await parseApiError(response));
+  return response.json() as Promise<ApiProject>;
+}
+
+export function listProjectMembers(projectId: string): Promise<ApiProjectMember[]> {
+  return getJson<ApiProjectMember[]>(`/projects/${projectId}/members`);
+}
+
+export function addProjectMember(
+  projectId: string,
+  data: { user_id: string; role: string },
+): Promise<ApiProjectMember> {
+  return getJson<ApiProjectMember>(`/projects/${projectId}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateProjectMember(
+  projectId: string,
+  userId: string,
+  patch: { role: string },
+): Promise<ApiProjectMember> {
+  return getJson<ApiProjectMember>(`/projects/${projectId}/members/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function removeProjectMember(projectId: string, userId: string): Promise<void> {
+  const response = await apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' }, true);
+  if (!response.ok) throw new Error(await parseApiError(response));
+}
+
+export interface ApiProjectMember {
+  user_id: string;
+  username: string;
+  email: string | null;
+  role: string;
+  joined_at: string;
 }
 
 export function listAdminUsers(): Promise<ApiAdminUser[]> {

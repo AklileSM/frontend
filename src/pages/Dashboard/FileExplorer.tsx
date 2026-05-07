@@ -116,7 +116,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ filterProjectSlug, projectL
       const m = name.match(/^Room\s+(\d+)$/i);
       if (m) {
         const slug = `room${m[1]}`;
-        out.push({ id: slug, name, slug, project_id: '' });
+        out.push({ id: slug, name, slug, project_id: '', floor_plan_coordinates: null, sort_order: 0 });
       }
     }
     return out;

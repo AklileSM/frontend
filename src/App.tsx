@@ -30,6 +30,7 @@ import ProjectHomePage from './pages/ProjectHomePage';
 import AdminPage from './pages/Admin/AdminPage';
 import AdminUsersPage from './pages/Admin/AdminUsersPage';
 import AdminProjectsPage from './pages/Admin/AdminProjectsPage';
+import ProjectSettingsPage from './pages/ProjectSettings/ProjectSettingsPage';
 import { ProjectProvider } from './context/ProjectContext';
 
 function App() {
@@ -48,6 +49,7 @@ function App() {
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/unauthorized';
   const isProjectHome = /^\/projects\/[^/]+$/.test(pathname);
+  const isProjectSettings = /^\/projects\/[^/]+\/settings/.test(pathname);
   const isProjectsPage = pathname === '/projects';
 
   return (
@@ -67,9 +69,10 @@ function App() {
             <Routes>
               <Route path="/" element={<RootPage />} />
               <Route path="/projects" element={<ProtectedRoute><ProjectsDashboard /></ProtectedRoute>} />
+              <Route path="/projects/:slug/settings" element={<ProtectedRoute requireAdmin><ProjectSettingsPage /></ProtectedRoute>} />
               <Route path="/projects/:slug" element={<ProtectedRoute><ProjectHomePage /></ProtectedRoute>} />
             </Routes>
-            {pathname !== '/' && !isProjectHome && !isProjectsPage && (
+            {pathname !== '/' && !isProjectHome && !isProjectsPage && !isProjectSettings && (
               <DefaultLayout>
                 <Routes>
                   <Route
