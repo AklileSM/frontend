@@ -91,12 +91,15 @@ const ChartLocation: React.FC<ChartLocationProps> = ({ hoveredRoom }) => {
 
   useEffect(() => {
     if (hoveredRoom && hoveredRoom !== 'overview') {
-      // Display the room-specific data as a single series
       const roomData = chartData[hoveredRoom as keyof typeof chartData];
-      setCurrentData(roomData);
-      setCurrentOptions(roomOptions);
+      if (roomData) {
+        setCurrentData(roomData);
+        setCurrentOptions(roomOptions);
+      } else {
+        setCurrentData(chartData.overview);
+        setCurrentOptions(overviewOptions);
+      }
     } else {
-      // Revert to overview data
       setCurrentData(chartData.overview);
       setCurrentOptions(overviewOptions);
     }
